@@ -10,7 +10,9 @@ import { UsersModule } from './users/users.module';
 import { MailModule } from './mail/mail.module';
 import { BookingController } from './bookings/booking.controller'; // Импортируем контроллер
 import { BookingService } from './bookings/booking.service';
-import {BookingModule} from "./bookings/booking.module"; // Импортируем сервис
+import {BookingModule} from "./bookings/booking.module";
+import {BookingManagementController} from "./bookings/booking-management.controller";
+import {BookingManagementService} from "./bookings/booking-management.service"; // Импортируем сервис
 
 @Module({
     imports: [
@@ -29,8 +31,8 @@ import {BookingModule} from "./bookings/booking.module"; // Импортируе
         MailModule,
         BookingModule,
     ],
-    controllers: [BookingController], // Регистрируем контроллер
-    providers: [BookingService], // Регистрируем сервис
+    controllers: [BookingController, BookingManagementController], // Регистрируем контроллер
+    providers: [BookingService, BookingManagementService], // Регистрируем сервис
 })
 export class AppModule {
     private readonly logger = new Logger(AppModule.name);

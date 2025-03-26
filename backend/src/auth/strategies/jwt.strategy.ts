@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { jwtConstants } from '../constants';
@@ -14,13 +14,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
-    console.log('JWT Payload:', payload); // Лог для отладки
-
-    // Проверяем, что у нас есть обязательные поля в payload
-    if (!payload.sub || !payload.email) {
-      throw new UnauthorizedException();
-    }
-
-    return { userId: payload.sub, email: payload.email }; // payload.sub должен содержать userId
+    console.log('Decoded JWT Payload:', payload); // Посмотри, что приходит
+    return { userId: payload.sub, email: payload.email }; // userId, а не id
   }
 }

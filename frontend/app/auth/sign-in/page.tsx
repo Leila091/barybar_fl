@@ -31,17 +31,23 @@ export default function SignInPage() {
             const data = await res.json();
 
             // ✅ Сохраняем данные в localStorage
-            localStorage.setItem("user", JSON.stringify(data.user)); // 🔥 Теперь сохраняем пользователя
+            localStorage.setItem("user", JSON.stringify(data.user));
             localStorage.setItem("token", data.access_token);
 
             console.log("✅ Пользователь сохранён в localStorage:", data.user);
 
             login(email, data.access_token);
-            router.push("/");
+
+            window.dispatchEvent(new Event("storage")); // 🔥 Оповещаем другие вкладки о смене авторизации
+
+            router.refresh(); // 🔄 Принудительное обновление
+            router.push("/"); // 🔀 Перенаправление
         } catch (err: any) {
             setError(err.message);
         }
     };
+
+
 
     return (
         <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-blue-50 to-white">

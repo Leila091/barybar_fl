@@ -17,7 +17,8 @@ import {
     InternalServerErrorException,
     HttpCode,
     HttpStatus,
-    Logger, // Добавлен импорт Logger
+    Logger,
+    Query,// Добавлен импорт Logger
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ListingService } from './listing.service';
@@ -74,16 +75,29 @@ export class ListingController {
     }
 
 
-    @Get(':id')
-    async getListingById(
-        @Param('id', ParseIntPipe) id: number,
-        @Req() req,
-    ) {
-        const userId = req.user?.id || null;
-        this.logger.log(`Запрос на объявление с ID: ${id}, пользователь: ${userId}`);
+    // @Get(':id')
+    // async getListingById(
+    //     @Param('id', ParseIntPipe) id: number,
+    //     @Req() req,
+    // ) {
+    //     const userId = req.user?.id || null;
+    //     this.logger.log(`Запрос на объявление с ID: ${id}, пользователь: ${userId}`);
+    //
+    //     return this.listingService.getListingById(id, userId);
+    // }
 
-        return this.listingService.getListingById(id, userId);
-    }
+
+    // @Get(':id')
+    // async getListingById(
+    //     @Param('id', new ParseIntPipe({ errorHttpStatusCode: 400 })) id: number,
+    //     @Req() req,
+    // ) {
+    //     const userId = req.user?.id || null;
+    //     this.logger.log(`Запрос на объявление с ID: ${id}, пользователь: ${userId}`);
+    //     return this.listingService.getListingById(id, userId);
+    // }
+
+
 
     @Patch(':id')
     @UseGuards(AuthGuard('jwt'))
@@ -166,4 +180,19 @@ export class ListingController {
             throw new InternalServerErrorException('Ошибка при загрузке файлов');
         }
     }
+
+    @Get('search') // ⬅️ Сначала обработчик поиска
+    async searchListings(@Query('q') query: string) {
+        if (!query) return [];
+        this.logger.log(`🔍 Поиск объявлений: ${query}`);
+        return this.listingService.searchByTitle(query);
+    }
+
+    @Get(':id') // ⬅️ Потом обработчик получения по ID
+    async getListingById(@Param('id', ParseIntPipe) id: number, @Req() req) {
+        this.logger.log(`📌 Запрос объявления с ID: ${id}`);
+        return this.listingService.getListingById(id, req.user?.id || null);
+    }
+
+
 }

@@ -25,4 +25,14 @@ export class BookingController {
     async getAllBookings() {
         return this.bookingService.getAllBookings();
     }
+
+    @Get('my')
+    @UseGuards(AuthGuard('jwt'))
+    async getUserBookings(@Req() req) {
+        const userId = req.user.userId;
+        return this.bookingService.getUserBookings(userId);
+    }
+
+
+
 }

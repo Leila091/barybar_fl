@@ -1,4 +1,4 @@
-import { Injectable, Inject, BadRequestException, Logger, ConflictException } from '@nestjs/common';
+import { Injectable, Inject, BadRequestException, Logger, ConflictException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { scrypt as _scrypt, randomBytes } from 'crypto';
@@ -20,6 +20,23 @@ export class AuthService {
       @Inject('PG_POOL') private readonly db: Pool,
       private mailService: MailService,
   ) {}
+
+  async findById(id: number) {
+    const { rows } = await this.db.query(  // Изменили this.pool на this.db
+        `SELECT id, email, first_name as "firstName", last_name as "lastName",
+                phone, is_verified as "isVerified", avatar
+         FROM users WHERE id = $1`,
+        [id]
+    );
+
+    console.log(`Query result for user ${id}:`, rows);
+
+    if (!rows[0]) {
+      throw new NotFoundException('User not found');
+    }
+
+    return rows[0];
+  }
 
   async signUp({ email, password, confirmPassword, firstName, lastName, phone }: CreateUserDto) {
     this.logger.log(`Начало регистрации для пользователя: ${email}`);
@@ -61,8 +78,8 @@ export class AuthService {
       // Сохранение пользователя
       const result = await client.query(
           `INSERT INTO users (email, password, first_name, last_name, phone, is_verified)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         RETURNING id, email, first_name, last_name, phone`,
+           VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING id, email, first_name, last_name, phone`,
           [email, hashedPassword, firstName, lastName, normalizedPhone, false]
       );
 
@@ -94,16 +111,14 @@ export class AuthService {
     return result;
   }
 
+  // auth.service.ts
   async signIn(user: { id: number; email: string }) {
     const payload = { sub: user.id, email: user.email };
-    const userData = await this.db.query(
-        'SELECT id, first_name, last_name, email, phone FROM users WHERE id = $1',
-        [user.id]
-    );
+    const userData = await this.userService.findById(user.id); // Используем userService
 
     return {
       access_token: this.jwtService.sign(payload),
-      user: userData.rows[0],
+      user: userData,
     };
   }
 

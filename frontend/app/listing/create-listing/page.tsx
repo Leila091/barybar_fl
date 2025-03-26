@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import toast, { Toaster } from "react-hot-toast";
+
 
 export default function CreateListing() {
     const [categories, setCategories] = useState([]);
@@ -58,32 +60,29 @@ export default function CreateListing() {
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
-        // Проверка обязательных полей
         if (!form.title.trim() || !form.description.trim() || !form.categoryId.trim() || !form.locationId.trim()) {
-            alert("Заполните все обязательные поля!");
+            toast.error("Заполните все обязательные поля!");
             return;
         }
+
         if (!form.price || isNaN(Number(form.price)) || Number(form.price) <= 0) {
-            alert("Цена должна быть положительным числом!");
+            toast.error("Цена должна быть положительным числом!");
             return;
         }
-        if (form.priceType === "per_unit" && (!form.quantity || isNaN(Number(form.quantity)) || Number(form.quantity) <= 0)) {
-            alert("Укажите корректное количество товара!");
-            return;
-        }
+
         if (!form.startDate || !form.endDate) {
-            alert("Выберите корректные даты!");
+            toast.error("Выберите корректные даты!");
             return;
         }
 
         const token = localStorage.getItem("token");
         if (!token) {
-            alert("Вы не авторизованы!");
+            toast.error("Вы не авторизованы!");
             return;
         }
 
         try {
-            // Загружаем фото в Cloudinary
+            // Загружаем фото
             const photoUrls = await Promise.all(
                 form.photos.map(async (file) => {
                     const formData = new FormData();
@@ -91,15 +90,11 @@ export default function CreateListing() {
 
                     const response = await fetch("http://localhost:3001/api/listings/upload-photos", {
                         method: "POST",
-                        headers: {
-                            Authorization: `Bearer ${token}`,
-                        },
+                        headers: { Authorization: `Bearer ${token}` },
                         body: formData,
                     });
 
-                    if (!response.ok) {
-                        throw new Error("Ошибка загрузки фото");
-                    }
+                    if (!response.ok) throw new Error("Ошибка загрузки фото");
 
                     const data = await response.json();
                     return data.urls[0];
@@ -120,7 +115,7 @@ export default function CreateListing() {
                     priceType: form.priceType,
                     quantity: form.priceType === "per_unit" ? Number(form.quantity) : undefined,
                     categoryId: Number(form.categoryId),
-                    location: locations.find(loc => loc.id === Number(form.locationId))?.name, // Ensure location is a string
+                    location: locations.find(loc => loc.id === Number(form.locationId))?.name,
                     startDate: new Date(form.startDate).toISOString(),
                     endDate: new Date(form.endDate).toISOString(),
                     photos: photoUrls,
@@ -133,9 +128,22 @@ export default function CreateListing() {
                 throw new Error(errorText);
             }
 
-            setShowModal(true);
+            // Показываем красивое уведомление
+
+            // ✅ Красивое уведомление
+            toast.success("Объявление создано!", {
+                icon: "✅",
+                style: {
+                    borderRadius: "8px",
+                    background: "#4CAF50",
+                    color: "#fff",
+                    fontWeight: "bold",
+                    padding: "16px",
+                },
+                duration: 3000, // Авто-закрытие через 3 секунды
+            });
+
             setTimeout(() => {
-                setShowModal(false);
                 router.push("/listing/my-listings");
             }, 2000);
 
@@ -155,9 +163,10 @@ export default function CreateListing() {
             setPreview([]);
         } catch (error) {
             console.error("Ошибка:", error);
-            alert(error.message);
+            toast.error("Не удалось загрузить категории и местоположения");
         }
     };
+
 
     return (
         <div className="max-w-2xl mx-auto mt-10 p-8 border rounded-lg shadow-lg bg-white">
@@ -223,7 +232,7 @@ export default function CreateListing() {
                         <label className="flex items-center gap-2">
                             <input
                                 type="radio"
-                                name="priceType"
+                                name="priceType" // ✅ Добавил name
                                 value="per_day"
                                 checked={form.priceType === "per_day"}
                                 onChange={handleChange}
@@ -233,6 +242,7 @@ export default function CreateListing() {
                         <label className="flex items-center gap-2">
                             <input
                                 type="radio"
+                                name="priceType" // ✅ Добавил name
                                 value="per_unit"
                                 checked={form.priceType === "per_unit"}
                                 onChange={handleChange}
@@ -242,7 +252,7 @@ export default function CreateListing() {
                         <label className="flex items-center gap-2">
                             <input
                                 type="radio"
-                                name="priceType"
+                                name="priceType" // ✅ Добавил name
                                 value="fixed"
                                 checked={form.priceType === "fixed"}
                                 onChange={handleChange}
@@ -251,6 +261,7 @@ export default function CreateListing() {
                         </label>
                     </div>
                 </div>
+
 
                 {form.priceType === "per_unit" && (
                     <div>
@@ -329,6 +340,7 @@ export default function CreateListing() {
                     Создать объявление
                 </button>
             </form>
+            <Toaster />
         </div>
     );
 }

@@ -3,8 +3,6 @@ import { Pool } from 'pg';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import * as dotenv from 'dotenv';
 
-
-
 dotenv.config(); // Явная загрузка переменных окружения
 
 @Module({
@@ -21,6 +19,7 @@ dotenv.config(); // Явная загрузка переменных окруж�
                     password: configService.get<string>('DB_PASSWORD', '123456'),
                     database: configService.get<string>('DB_NAME', 'barybar_dev'),
                 });
+
                 console.log('🔍 PG_POOL initialized with:', {
                     host: configService.get<string>('DB_HOST'),
                     port: configService.get<number>('DB_PORT'),
@@ -28,7 +27,8 @@ dotenv.config(); // Явная загрузка переменных окруж�
                     database: configService.get<string>('DB_NAME'),
                     password: configService.get<string>('DB_PASSWORD') ? '✅ Loaded' : '❌ Not loaded',
                 });
-                return pool;
+
+                return pool; // Возвращаем только pool
             },
         },
     ],

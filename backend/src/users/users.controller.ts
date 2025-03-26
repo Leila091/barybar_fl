@@ -1,3 +1,4 @@
+// backend/src/users/users.controller.ts
 import { Controller, Get, Put, UseGuards, Req, Body, Param, NotFoundException } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -10,17 +11,20 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   @Get('profile')
   async getProfile(@Req() req) {
-    const user = await this.usersService.findById(req.user.id);
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-    return user;
+    console.log('REQ.USER:', req.user);
+    return this.usersService.findById(req.user.userId);
   }
 
-  @UseGuards(JwtAuthGuard)
+
+  // @UseGuards(JwtAuthGuard)
+  // @Get('profile')
+  // async getProfile(@Req() req) {
+  //   const userId = req.user.id;
+  //   return this.usersService.findById(userId);
+  // }
+
   @Put('profile')
   async updateProfile(@Req() req, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.update(req.user.id, updateUserDto);
   }
 
   @Get('email/:email')

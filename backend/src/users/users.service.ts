@@ -16,16 +16,21 @@ export class UsersService {
     return rows[0] || null;
   }
 
+// backend/src/users/users.service.ts
   async findById(id: number) {
+    console.log('Finding user with id:', id); // Add logging
+
     const { rows } = await this.pool.query(
         `SELECT id, email, first_name as "firstName", last_name as "lastName",
-              phone, is_verified as "isVerified", avatar
-       FROM users WHERE id = $1`,
+                phone, is_verified as "isVerified", avatar
+         FROM users WHERE id = $1`,
         [id]
     );
+
     if (!rows[0]) {
       throw new NotFoundException('User not found');
     }
+
     return rows[0];
   }
 

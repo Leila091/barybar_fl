@@ -10,7 +10,9 @@ import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { DatabaseModule } from '../database/database.module';
 import { MailModule } from '../mail/mail.module'; // Подключаем MailModule
-import { VerificationService } from './verification.service'; // Подключаем VerificationService
+import { VerificationService } from './verification.service';
+
+// Подключаем VerificationService
 
 @Module({
   imports: [

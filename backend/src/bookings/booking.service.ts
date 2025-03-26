@@ -102,24 +102,25 @@ export class BookingService {
         }
     }
 
+    // backend/src/bookings/booking.service.ts
     async getUserBookings(userId: number) {
         const query = `
-      SELECT 
-        b.id,
-        b.start_date as "startDate",
-        b.end_date as "endDate",
-        b.status,
-        b.created_at as "createdAt",
-        l.id as "listingId",
-        l.title,
-        l.price,
-        l."mainPhoto",
-        l.location
-      FROM bookings b
-      JOIN listings l ON b.listing_id = l.id
-      WHERE b.user_id = $1
-      ORDER BY b.created_at DESC
-    `;
+            SELECT
+                b.id,
+                b.start_date as "startDate",
+                b.end_date as "endDate",
+                b.status,
+                b.created_at as "createdAt",
+                l.id as "listingId",
+                l.title,
+                l.price,
+                l."mainPhoto",
+                l.location
+            FROM bookings b
+                     JOIN listings l ON b.listing_id = l.id
+            WHERE b.user_id = $1
+            ORDER BY b.created_at DESC
+        `;
 
         const result = await this.pool.query(query, [userId]);
         return result.rows;
@@ -127,7 +128,7 @@ export class BookingService {
 
     async getAllBookings() {
         const query = `
-      SELECT 
+      SELECT
         b.id,
         b.start_date as "startDate",
         b.end_date as "endDate",
@@ -147,21 +148,78 @@ export class BookingService {
         return result.rows;
     }
 
+    async cancelBooking(bookingId: number, userId: number) {
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            // Проверяем, существует ли бронирование и кому оно принадлежит
+            const bookingCheck = await client.query(
+                `SELECT id, user_id, listing_id FROM bookings WHERE id = $1`,
+                [bookingId]
+            );
+
+            if (!bookingCheck.rows.length) {
+                throw new NotFoundException('Бронирование не найдено');
+            }
+
+            const booking = bookingCheck.rows[0];
+
+            // Проверяем, является ли пользователь арендатором или владельцем объявления
+            const listingCheck = await client.query(
+                `SELECT user_id FROM listings WHERE id = $1`,
+                [booking.listing_id]
+            );
+
+            if (!listingCheck.rows.length) {
+                throw new NotFoundException('Объявление не найдено');
+            }
+
+            const ownerId = listingCheck.rows[0].user_id;
+
+            if (booking.user_id !== userId && ownerId !== userId) {
+                throw new ConflictException('Вы не можете отменить это бронирование');
+            }
+
+            // Обновляем статус на "canceled"
+            await client.query(
+                `UPDATE bookings SET status = 'canceled' WHERE id = $1`,
+                [bookingId]
+            );
+
+            // Освобождаем товар в listings
+            await client.query(
+                `UPDATE listings SET "bookingStatus" = 'available' WHERE id = $1`,
+                [booking.listing_id]
+            );
+
+            await client.query('COMMIT');
+            return { message: 'Бронирование отменено' };
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
 
     private checkDatesAvailability(
-        listingStart: string | Date,
-        listingEnd: string | Date,
-        bookingStart: string | Date,
-        bookingEnd: string | Date
+            listingStart: string | Date,
+            listingEnd: string | Date,
+            bookingStart: string | Date,
+            bookingEnd: string | Date
     ): boolean {
-        const listingStartDate = new Date(listingStart);
-        const listingEndDate = new Date(listingEnd);
-        const bookingStartDate = new Date(bookingStart);
-        const bookingEndDate = new Date(bookingEnd);
+            const listingStartDate = new Date(listingStart);
+            const listingEndDate = new Date(listingEnd);
+            const bookingStartDate = new Date(bookingStart);
+            const bookingEndDate = new Date(bookingEnd);
 
-        return (
-            bookingStartDate >= listingStartDate &&
-            bookingEndDate <= listingEndDate
-        );
-    }
+            return (
+                bookingStartDate >= listingStartDate &&
+                bookingEndDate <= listingEndDate
+            );
+        }
+
+
+
 }

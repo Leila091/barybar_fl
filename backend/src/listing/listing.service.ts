@@ -1,8 +1,9 @@
-import { Injectable, Inject, NotFoundException, ForbiddenException, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, ForbiddenException, Logger, BadRequestException, Get, Query} from '@nestjs/common';
 import { Pool } from 'pg';
 import { CreateListingDto } from './dto/create-listing.dto';
 import { UpdateListingDto } from './dto/update-listing.dto';
 import { CategoryService } from '../listing/category/category.service';
+
 
 @Injectable()
 export class ListingService {
@@ -313,4 +314,14 @@ export class ListingService {
 
         return dates;
     }
+
+
+    async searchByTitle(query: string) {
+        const result = await this.db.query(
+            `SELECT * FROM listings WHERE title ILIKE $1`,
+            [`%${query}%`]
+        );
+        return result.rows;
+    }
+
 }
