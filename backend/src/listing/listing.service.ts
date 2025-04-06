@@ -129,7 +129,7 @@ export class ListingService {
 
         // Подготавливаем данные для обновления
         const updateData: Record<string, any> = {}; // Указываем тип для updateData
-        const validFields = ['title', 'description', 'price', 'location', 'startDate', 'endDate', 'categoryId', 'status', 'bookingStatus', 'photos'];
+        const validFields = ['title', 'description', 'price', 'priceType', 'quantity', 'location', 'startDate', 'endDate', 'categoryId', 'status', 'bookingStatus', 'photos'];
 
         // Добавляем в updateData только те поля, которые переданы в dto и не равны undefined
         for (const field of validFields) {
@@ -182,23 +182,101 @@ export class ListingService {
     }
 
     // Получение объявлений по категории (по умолчанию только опубликованные)
-    async getListingsByCategory(categoryId: number, status: string = 'published') {
-        const result = await this.db.query(
-            'SELECT id, title, description, price, "categoryId", "userId", status, "bookingStatus", location, "startDate", "endDate", photos FROM listings WHERE "categoryId" = $1 AND status = $2',
-            [categoryId, status]
-        );
-        return result.rows;
-    }
+    async getListingsByCategory(categoryId: number, filters?: {
+        locationId?: number;
+        minPrice?: number;
+        maxPrice?: number;
+        sortBy?: string;
+        status?: string;
+    }): Promise<any[]> {
+        try {
+            console.log('Getting listings for category:', categoryId);
+            console.log('With filters:', filters);
 
-    // Получение всех опубликованных объявлений
-    async getPublishedListings() {
-        const result = await this.db.query(
-            'SELECT id, title, description, price, "categoryId", "userId", status, "bookingStatus", location, "start_date", "end_date", photos FROM listings WHERE status = $1',
-            ['published']
-        );
-        return result.rows;
-    }
+            // Основной запрос без JOIN с location, так как location хранится как текст
+            let query = `
+                SELECT
+                    l.*,
+                    c.name as category_name
+                FROM listings l
+                         JOIN category c ON l."categoryId"::integer = c.id
+                WHERE l."categoryId"::integer = $1 AND l.status = $2
+            `;
 
+            const queryParams: any[] = [categoryId, filters?.status || 'published'];
+            let paramIndex = 3;
+
+            // Если нужна фильтрация по locationId, используем текстовое сравнение
+            if (filters?.locationId) {
+                // Сначала получаем название локации по ID
+                const location = await this.db.query(
+                    'SELECT name FROM location WHERE id = $1',
+                    [filters.locationId]
+                );
+
+                if (location.rows.length) {
+                    query += ` AND l.location = $${paramIndex}`;
+                    queryParams.push(location.rows[0].name);
+                    paramIndex++;
+                }
+            }
+
+            if (filters?.minPrice) {
+                query += ` AND l.price >= $${paramIndex}`;
+                queryParams.push(filters.minPrice);
+                paramIndex++;
+            }
+
+            if (filters?.maxPrice) {
+                query += ` AND l.price <= $${paramIndex}`;
+                queryParams.push(filters.maxPrice);
+                paramIndex++;
+            }
+
+            // Сортировка
+            if (filters?.sortBy) {
+                switch (filters.sortBy) {
+                    case 'price_asc':
+                        query += ' ORDER BY l.price ASC';
+                        break;
+                    case 'price_desc':
+                        query += ' ORDER BY l.price DESC';
+                        break;
+                    case 'date_asc':
+                        query += ' ORDER BY l."startDate" ASC';
+                        break;
+                    case 'date_desc':
+                    default:
+                        query += ' ORDER BY l."startDate" DESC';
+                        break;
+                }
+            } else {
+                query += ' ORDER BY l."startDate" DESC';
+            }
+
+            console.log('Executing query:', query);
+            console.log('With params:', queryParams);
+
+            const result = await this.db.query(query, queryParams);
+
+            // Дополнительно получаем данные о локации, если они нужны
+            if (result.rows.length) {
+                for (const listing of result.rows) {
+                    const locationInfo = await this.db.query(
+                        'SELECT * FROM location WHERE name = $1',
+                        [listing.location]
+                    );
+                    listing.location_info = locationInfo.rows[0] || null;
+                }
+            }
+
+            console.log('Query result:', result.rows);
+            return result.rows;
+        } catch (error) {
+            console.error('Error in getListingsByCategory:', error);
+            throw error;
+        }
+    }
     // Архивирование объявления (только для создателя)
     async archiveListing(id: number, userId: number) {
         const existing = await this.db.query('SELECT "userId" FROM listings WHERE id = $1', [id]);
@@ -321,6 +399,34 @@ export class ListingService {
             `SELECT * FROM listings WHERE title ILIKE $1`,
             [`%${query}%`]
         );
+        return result.rows;
+    }
+
+    async getLatestListings() {
+        this.logger.log('Запрос на получение последних объявлений');
+        const query = `
+            SELECT 
+                id, 
+                title, 
+                description, 
+                price, 
+                "categoryId", 
+                "userId", 
+                status, 
+                "bookingStatus", 
+                location, 
+                "startDate", 
+                "endDate", 
+                photos,
+                "created_at"
+            FROM listings 
+            WHERE status = 'published'
+            ORDER BY "created_at" DESC
+            LIMIT 10
+        `;
+        
+        const result = await this.db.query(query);
+        this.logger.log(`Найдено последних объявлений: ${result.rows.length}`);
         return result.rows;
     }
 

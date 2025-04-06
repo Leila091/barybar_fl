@@ -8,11 +8,12 @@ import { UploadModule } from './api/upload/upload.module';
 import { CategoryModule } from './listing/category/category.module';
 import { UsersModule } from './users/users.module';
 import { MailModule } from './mail/mail.module';
-import { BookingController } from './bookings/booking.controller'; // Импортируем контроллер
+import { BookingController } from './bookings/booking.controller';
 import { BookingService } from './bookings/booking.service';
-import {BookingModule} from "./bookings/booking.module";
-import {BookingManagementController} from "./bookings/booking-management.controller";
-import {BookingManagementService} from "./bookings/booking-management.service"; // Импортируем сервис
+import { BookingModule } from './bookings/booking.module';
+import { BookingManagementController } from './bookings/booking-management.controller';
+import { BookingManagementService } from './bookings/booking-management.service';
+import { PasswordResetModule } from './auth/password-reset/password-reset.module';
 
 @Module({
     imports: [
@@ -22,7 +23,7 @@ import {BookingManagementService} from "./bookings/booking-management.service"; 
         }),
         DatabaseModule,
         ListingModule,
-        AuthModule, // AuthModule уже включает VerificationService
+        AuthModule,
         UsersModule,
         LocationModule,
         UploadModule,
@@ -30,24 +31,25 @@ import {BookingManagementService} from "./bookings/booking-management.service"; 
         UsersModule,
         MailModule,
         BookingModule,
+        PasswordResetModule, // Импортируем PasswordResetModule
     ],
-    controllers: [BookingController, BookingManagementController], // Регистрируем контроллер
-    providers: [BookingService, BookingManagementService], // Регистрируем сервис
+    controllers: [BookingController, BookingManagementController],
+    providers: [BookingService, BookingManagementService],
 })
 export class AppModule {
     private readonly logger = new Logger(AppModule.name);
 
     constructor(private readonly configService: ConfigService) {
-        this.logger.log('\ud83d\udcaa AppModule запущен!');
+        this.logger.log('💪 AppModule started!');
 
-        // Логируем переменные окружения через ConfigService
-        this.logger.log('\ud83d\udd0d Загруженные переменные окружения:');
+        // Логирование переменных окружения через ConfigService
+        this.logger.log('🔍 Loaded environment variables:');
         this.logger.log('DB_HOST:', this.configService.get<string>('DB_HOST'));
         this.logger.log('DB_PORT:', this.configService.get<string>('DB_PORT'));
         this.logger.log('DB_USER:', this.configService.get<string>('DB_USER'));
         this.logger.log(
             'DB_PASSWORD:',
-            this.configService.get<string>('DB_PASSWORD') ? '\u2705 Загружено' : '\u274c Не загружено',
+            this.configService.get<string>('DB_PASSWORD') ? '✅ Loaded' : '❌ Not loaded',
         );
         this.logger.log('DB_NAME:', this.configService.get<string>('DB_NAME'));
     }

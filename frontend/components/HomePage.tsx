@@ -1,180 +1,218 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import "../app/globals.css";
-import { FaSearch, FaCheckCircle, FaClock, FaShieldAlt } from "react-icons/fa";
 import Image from "next/image";
+import { Swiper as SwiperComponent, SwiperSlide } from 'swiper/react';
+import { Navigation, Pagination } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/navigation';
+import 'swiper/css/pagination';
+import ListingsSlider from "./ListingsSlider";
+import { FaSearch, FaCalendar, FaHandshake, FaExchangeAlt } from "react-icons/fa";
+import { IconType } from "react-icons";
+import Categories from "./Categories";
 
-// Хук для анимации появления карточек при прокрутке
-const useFadeInOnScroll = () => {
-    useEffect(() => {
-        const elements = document.querySelectorAll('.fade-in');
-        const handleScroll = () => {
-            elements.forEach((el) => {
-                const rect = el.getBoundingClientRect();
-                if (rect.top < window.innerHeight) {
-                    el.classList.add('fade-in-visible');
-                }
-            });
-        };
+interface Listing {
+    id: number;
+    title: string;
+    price: number;
+    image: string;
+    created_at: string;
+}
 
-        window.addEventListener('scroll', handleScroll);
-        handleScroll(); // Для инициализации при первой загрузке
-
-        return () => window.removeEventListener('scroll', handleScroll);
-    }, []);
-};
+interface Step {
+    icon: React.ComponentType;
+    title: string;
+    description: string;
+}
 
 const HomePage = () => {
-    useFadeInOnScroll();
+    const [latestListings, setLatestListings] = useState<Listing[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    useEffect(() => {
+        fetchLatestListings();
+    }, []);
 
-    const handleStart = () => {
-        setIsModalOpen(true); // Открываем модальное окно при нажатии на кнопку
+    const fetchLatestListings = async () => {
+        try {
+            const response = await fetch('/api/listings/latest');
+            const data = await response.json();
+            setLatestListings(data);
+        } catch (error) {
+            console.error('Error fetching latest listings:', error);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    const closeModal = () => {
-        setIsModalOpen(false); // Закрываем модальное окно
-    };
-
-    const listings = [
-        { id: 1, title: "Ноутбук в аренду", price: "5000 KZT/день" },
-        { id: 2, title: "Дрель Makita", price: "2000 KZT/день" },
-        { id: 3, title: "Горный велосипед", price: "7000 KZT/день" },
-        { id: 4, title: "Авто Toyota Camry", price: "15 000 KZT/день" },
+    const steps: Step[] = [
+        {
+            icon: FaSearch,
+            title: "Шаг 1",
+            description: "Найдите товар/услугу"
+        },
+        {
+            icon: FaCalendar,
+            title: "Шаг 2",
+            description: "Забронируйте на удобное время"
+        },
+        {
+            icon: FaHandshake,
+            title: "Шаг 3",
+            description: "Получите и пользуйтесь"
+        },
+        {
+            icon: FaExchangeAlt,
+            title: "Шаг 4",
+            description: "Верните товар или услугу"
+        }
     ];
 
+    const Icon = (props: { icon: React.ComponentType }) => {
+        const IconComponent = props.icon;
+        return <IconComponent />;
+    };
+
     return (
-        <>
+        <main className="min-h-screen">
             {/* Hero Section */}
-            <main className="relative flex flex-col items-start justify-center text-left px-8 py-18 pl-20 bg-gradient-to-r from-blue-500 to-indigo-600 text-white min-h-[500px]">
-                <h1 className="text-6xl font-extrabold mb-4">Добро пожаловать в Barybar</h1>
-                <p className="text-4xl max-w-2xl mb-6">
-                    Онлайн-платформа для аренды и проката товаров и услуг
-                </p>
-
-                {/* Фон */}
-
-                {/* Робот */}
-                <div className="absolute right-10 bottom-0 z-10">
-                    <Image
-                        src="/1.png"
-                        alt="Робот Barybar"
-                        width={350}
-                        height={350}
-                        className="mx-auto"
-                    />
-                </div>
-
-                {/* Элементы интерфейса */}
-                {/*<div className="absolute left-[739px] top-[168px] w-[68px] h-[68px] bg-yellow-400 rounded-[21px]">*/}
-                {/*    <Image src="/Frame 3.png" alt="Телефон" layout="fill" objectFit="contain" />*/}
-                {/*</div>*/}
-
-                {/*<div className="absolute left-[1213.88px] top-[402.63px] w-[68px] h-[68px] bg-yellow-400 rounded-[21px] transform rotate-[12.1deg]">*/}
-                {/*    <Image src="/Frame 4.png" alt="Чат" layout="fill" objectFit="contain" />*/}
-                {/*</div>*/}
-
-                {/* Волны звука */}
-                {/*<div className="absolute bottom-1 left-10 max-w-72 bg-gradient-to-r from-[#CCDEFF] to-[#FFFFFF]">*/}
-                {/*    <Image src="/Vector.png" alt="Волны звука" width={999} height={100} />*/}
-                {/*</div>*/}
-            </main>
-
-            {/* Модальное окно для регистрации/входа */}
-            {isModalOpen && (
-                <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex justify-center items-center z-50">
-                    <div className="bg-white p-8 rounded-lg shadow-lg max-w-sm w-full">
-                        <h2 className="text-2xl font-semibold text-gray-800 mb-4">Зарегистрируйтесь или войдите</h2>
-                        <p className="text-gray-600 mb-6">Для доступа к функционалу необходимо создать аккаунт или войти в существующий.</p>
-                        <div className="flex space-x-4">
-                            <button
-                                className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
-                                onClick={() => alert("Открыть форму регистрации")}
-                            >
-                                Регистрация
-                            </button>
-                            <button
-                                className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition"
-                                onClick={() => alert("Открыть форму входа")}
-                            >
-                                Войти
-                            </button>
+            <div className="relative mt-20 w-full max-w-[1440px] mx-auto">
+                <section className="relative w-full h-[562px]">
+                    <div className="w-full h-full bg-gradient-to-r from-[#5E54F3] to-[#00C2FA] flex items-center">
+                        <div className="max-w-screen-xl w-full mx-auto px-6 sm:px-12 lg:px-24 flex flex-col items-center sm:items-start">
+                            <h1 className="text-5xl font-bold text-white mb-4">
+                                Добро пожаловать<br />
+                                в <span className="text-[#FFB800]">Barybar</span>
+                            </h1>
+                            <p className="text-xl text-white mb-8">
+                                Онлайн-платформа для аренды и проката<br />товаров и услуг
+                            </p>
+                            <div className="flex gap-4">
+                                <button className="bg-white text-[#5E54F3] px-6 py-3 rounded-lg font-medium">
+                                    Поиск вещей
+                                </button>
+                                <button className="border-2 border-white text-white px-6 py-3 rounded-lg font-medium">
+                                    Добавить объявление
+                                </button>
+                            </div>
                         </div>
-                        <button
-                            className="mt-4 text-blue-500 hover:underline"
-                            onClick={closeModal}
-                        >
-                            Закрыть
-                        </button>
+
+                        {/* Floating Category Icons */}
+                        <div className="absolute right-[123px] top-[50%] transform -translate-y-1/2">
+                            <div className="relative w-[400px] h-[400px]">
+                                <div className="absolute top-10 right-[0%] bg-[#FFB800] p-3 rounded-xl">
+                                    <Image src="/icons/laptop.svg" alt="Laptop" width={32} height={32} />
+                                </div>
+                                <div className="absolute top-[25%] right-[100%] bg-[#FFB800] p-3 rounded-xl">
+                                    <Image src="/Bike.png" alt="Bike" width={32} height={32} />
+                                </div>
+                                <div className="absolute top-[55%] right-[10%] bg-[#FFB800] p-3 rounded-xl">
+                                    <Image src="/icons/car.svg" alt="Car" width={32} height={32} />
+                                </div>
+                                <div className="absolute bottom-[30%] right-[110%] bg-[#FFB800] p-3 rounded-xl">
+                                    <Image src="/tools.png" alt="Tools" width={32} height={32} />
+                                </div>
+                                <div className="absolute bottom-[10%] right-[80%] bg-[#FFB800] p-3 rounded-xl">
+                                    <Image src="/home.png" alt="Tools" width={32} height={32} />
+                                </div>
+                                <Image
+                                    src="/robot.png"
+                                    alt="Barybar Robot"
+                                    width={300}
+                                    height={400}
+                                    className="absolute bottom-[-140px] right-20 z-[9999]"
+                                    priority
+                                />
+                            </div>
+                        </div>
+
+                        {/* Wave shape */}
+                        <div className="absolute bottom-0 left-0 w-full">
+                            <svg viewBox="0 0 1440 180" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" className="w-full">
+                                <path d="M0,180 C360,120 720,150 1440,120 L1440,180 L0,180 Z" fill="white"/>
+                            </svg>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            {/* How it works */}
+            <section className="py-16 bg-gray-50">
+                <div className="container mx-auto px-4">
+                    <h2 className="text-2xl font-bold text-center mb-12">Как это работает?</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                        {steps.map((step, index) => (
+                            <div key={index} className="flex flex-col items-center text-center p-6 bg-white rounded-xl shadow-sm">
+                                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                                    <div className="w-8 h-8 text-blue-600">
+                                        <Icon icon={step.icon} />
+                                    </div>
+                                </div>
+                                <h3 className="font-medium mb-2">{step.title}</h3>
+                                <p className="text-gray-600">{step.description}</p>
+                            </div>
+                        ))}
                     </div>
                 </div>
-            )}
+            </section>
 
-            {/* Последние объявления */}
-            <section className="w-full max-w-6xl mx-auto px-8 py-12 text-center">
-                <h2 className="text-3xl font-semibold text-gray-800 mb-6">Последние объявления</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-                    {listings.map((listing) => (
-                        <div
-                            key={listing.id}
-                            className="bg-white p-6 rounded-xl shadow-md text-center card fade-in"
-                        >
-                            <h3 className="text-xl font-semibold text-gray-800">{listing.title}</h3>
-                            <p className="text-lg text-blue-500 font-bold mt-2">{listing.price}</p>
-                            <button className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
-                                Подробнее
-                            </button>
+            {/* Categories */}
+            <Categories />
+
+            {/* Latest Listings */}
+            <section className="py-16">
+                <div className="container mx-auto px-4">
+                    <h2 className="text-2xl font-bold text-center mb-12">Последние объявления</h2>
+                    {isLoading ? (
+                        <div className="flex justify-center items-center h-64">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
                         </div>
-                    ))}
+                    ) : latestListings.length > 0 ? (
+                        <ListingsSlider listings={latestListings} />
+                    ) : (
+                        <p className="text-center text-gray-500">Пока нет объявлений</p>
+                    )}
                 </div>
             </section>
 
-            {/* Как это работает? */}
-            <section className="w-full max-w-6xl mx-auto px-8 py-12 text-center">
-                <h2 className="text-3xl font-semibold text-gray-800 mb-6">Как это работает?</h2>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    {["Найдите товар/услугу", "Забронируйте на удобное время", "Получите и пользуйтесь", "Верните товар или завершите услугу"].map((step, index) => (
-                        <div key={index} className="bg-white p-6 rounded-xl shadow-md text-center fade-in">
-                            <h3 className="font-semibold text-xl text-blue-500">Шаг {index + 1}</h3>
-                            <p className="text-gray-600 mt-2">{step}</p>
+            {/* About Platform */}
+            <section className="bg-gradient-to-r from-[#2563EB] to-[#4F46E5] py-16">
+                <div className="container mx-auto px-4">
+                    <div className="flex flex-col md:flex-row items-center justify-between">
+                        {/* Текстовая часть - слева */}
+                        <div className="max-w-xl mb-8 md:mb-0">
+                            <h2 className="text-3xl font-bold text-white mb-4">
+                                Barybar - это универсальная платформа для аренды и проката различных товаров
+                            </h2>
+                            <p className="text-white/80 mb-6">
+                                Процесс аренды удобный, прозрачный и доступен для всех сторон
+                            </p>
+                            {/*<div className="flex gap-4">*/}
+                            {/*    <Image*/}
+                            {/*        src="/robot_futter.png"*/}
+                            {/*        alt="Barybar"*/}
+                            {/*        width={120}*/}
+                            {/*        height={40}*/}
+                            {/*    />*/}
+                            {/*</div>*/}
                         </div>
-                    ))}
+
+                        {/* Картинка - справа */}
+                        <div className="relative w-full md:w-1/3">
+                            <Image
+                                src="/robot_futter.png"
+                                alt="Barybar Robot with Boxes"
+                                width={400}
+                                height={400}
+                                className="mx-auto md:ml-auto"
+                            />
+                        </div>
+                    </div>
                 </div>
             </section>
-
-            {/* Преимущества платформы */}
-            <section className="w-full max-w-6xl mx-auto px-8 py-12 text-center">
-                <h2 className="text-3xl font-semibold text-gray-800 mb-6">Почему выбирают "БәріБар"?</h2>
-                <div className="flex space-x-6 overflow-x-auto py-4 px-2 scrollbar-hide">
-                    {[
-                        { text: "Удобный поиск и фильтры", icon: <FaSearch className='text-blue-500 text-3xl' /> },
-                        { text: "Прямое бронирование без звонков", icon: <FaClock className='text-blue-500 text-3xl' /> },
-                        { text: "Гарантии безопасности", icon: <FaShieldAlt className='text-blue-500 text-3xl' /> },
-                        { text: "Простота аренды", icon: <FaCheckCircle className='text-blue-500 text-3xl' /> },
-                    ].map((adv, index) => (
-                        <div key={index} className="flex flex-col items-center bg-white p-6 rounded-xl shadow-md min-w-[220px]">
-                            {adv.icon}
-                            <p className="text-gray-600 mt-2 font-medium">{adv.text}</p>
-                        </div>
-                    ))}
-                </div>
-            </section>
-
-            {/* Популярные категории */}
-            <section className="w-full max-w-6xl mx-auto px-8 py-12 text-center">
-                <h2 className="text-3xl font-semibold text-gray-800 mb-6">Популярные категории</h2>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                    {["Электроника", "Инструменты", "Спорт и активный отдых", "Автомобили"].map((category, index) => (
-                        <div key={index} className="bg-white p-6 rounded-xl shadow-md text-center fade-in">
-                            <p className="text-gray-600 text-lg font-medium">{category}</p>
-                        </div>
-                    ))}
-                </div>
-            </section>
-
-        </>
+        </main>
     );
 };
 

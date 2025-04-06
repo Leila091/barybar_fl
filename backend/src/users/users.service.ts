@@ -16,9 +16,9 @@ export class UsersService {
     return rows[0] || null;
   }
 
-// backend/src/users/users.service.ts
   async findById(id: number) {
     console.log('Finding user with id:', id); // Add logging
+    const start = Date.now(); // Start timer
 
     const { rows } = await this.pool.query(
         `SELECT id, email, first_name as "firstName", last_name as "lastName",
@@ -27,13 +27,15 @@ export class UsersService {
         [id]
     );
 
+    const duration = Date.now() - start; // Calculate duration
+    console.log(`findById took ${duration}ms`); // Log duration
+
     if (!rows[0]) {
       throw new NotFoundException('User not found');
     }
 
     return rows[0];
   }
-
 
   async update(id: number, updateData: UpdateUserDto) {
     const updates: string[] = [];
@@ -65,7 +67,6 @@ export class UsersService {
     const { rows } = await this.pool.query(query, values);
     return rows[0];
   }
-
 
   async create(createUserDto: CreateUserDto) {
     const { email, password, confirmPassword, firstName, lastName, phone } = createUserDto;

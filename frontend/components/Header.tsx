@@ -3,9 +3,18 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FaSearch, FaBars, FaUser, FaSignOutAlt, FaList, FaCalendarAlt } from "react-icons/fa";
-import { isAuthenticated, logoutUser, loginUser } from "../app/auth/auth";
+import { FaSearch, FaBars, FaUser, FaSignOutAlt, FaList, FaCalendarAlt, FaTimes } from "react-icons/fa";
+import { IconType } from "react-icons";
+import { isAuthenticated, logoutUser } from "../app/auth/auth";
 import "../app/globals.css";
+import CreateListingModal from "../app/listing/create-listing/page";
+import SignInPage from "../app/auth/sign-in/page";
+import SignUpPage from "../app/auth/sign-up/page";
+import Image from "next/image";
+
+const renderIcon = (Icon: IconType, size = 20) => {
+    return <Icon size={size} />;
+};
 
 const Header = () => {
     const router = useRouter();
@@ -14,63 +23,58 @@ const Header = () => {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [query, setQuery] = useState("");
     const [results, setResults] = useState([]);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [showSignUpModal, setShowSignUpModal] = useState(false);
+    const [showSignInModal, setShowSignInModal] = useState(false);
 
+    // Проверка аутентификации и загрузка профиля
     useEffect(() => {
         const checkAuth = async () => {
-            if (isAuthenticated()) {
-                setIsAuth(true);
-                try {
-                    const res = await fetch("/api/users/profile", { credentials: "include" });
-                    const data = await res.json();
-                    if (data && data.firstName) {
-                        setUser(data);
-                    }
-                } catch (err) {
-                    console.error("Ошибка при загрузке профиля:", err);
+            try {
+                const token = localStorage.getItem("token");
+                if (!token) {
+                    setIsAuth(false);
+                    setUser(null);
+                    return;
                 }
-            } else {
+
+                const res = await fetch("http://localhost:3000/api/users/profile", {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`,
+                    },
+                });
+
+                if (!res.ok) {
+                    if (res.status === 401) {
+                        localStorage.removeItem("token");
+                        localStorage.removeItem("user");
+                        setIsAuth(false);
+                        setUser(null);
+                        return;
+                    }
+                    throw new Error("Ошибка загрузки профиля");
+                }
+
+                const data = await res.json();
+                if (data && data.firstName) {
+                    setUser(data);
+                    setIsAuth(true);
+                }
+            } catch (err) {
+                console.error("Ошибка при загрузке профиля:", err);
                 setIsAuth(false);
                 setUser(null);
             }
         };
 
         checkAuth();
-
-        const handleStorageChange = () => {
-            console.log("🔄 Обновление состояния после изменения localStorage");
-            checkAuth();
-        };
-
-        window.addEventListener("storage", handleStorageChange);
-        return () => window.removeEventListener("storage", handleStorageChange);
+        window.addEventListener("storage", checkAuth);
+        return () => window.removeEventListener("storage", checkAuth);
     }, []);
 
-    const handleLogin = async () => {
-        await loginUser(); // Функция логина
-        setIsAuth(true);
-        router.refresh(); // Принудительное обновление страницы
-    };
-
-    const handleLogout = () => {
-        logoutUser();
-        setIsAuth(false);
-        setUser(null);
-        router.refresh(); // Принудительное обновление
-        router.push("/");
-    };
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (!document.getElementById("search-bar")?.contains(event.target as Node)) {
-                setQuery("");
-                setResults([]);
-            }
-        };
-
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
-
+    // Поиск объявлений
     useEffect(() => {
         const fetchResults = async () => {
             if (!query.trim()) {
@@ -79,7 +83,7 @@ const Header = () => {
             }
 
             try {
-                const response = await fetch(`http://localhost:3001/api/listings/search?q=${query}`);
+                const response = await fetch(`/api/listings/search?q=${query}`);
                 const data = await response.json();
                 setResults(data);
             } catch (error) {
@@ -87,7 +91,8 @@ const Header = () => {
             }
         };
 
-        fetchResults();
+        const timer = setTimeout(fetchResults, 300);
+        return () => clearTimeout(timer);
     }, [query]);
 
     const handleSelectListing = (listingId: number) => {
@@ -96,120 +101,316 @@ const Header = () => {
         router.push(`/listing/${listingId}`);
     };
 
-    return (
-        <header className="bg-white shadow-md py-4 px-8 relative z-20">
-            <div className="container mx-auto flex justify-between items-center">
-                <div className="flex items-center space-x-6">
-                    <Link href="/" className="text-3xl font-bold text-gray-800">Barybar</Link>
-                    <Link href="/categories" className="text-gray-700 hover:text-blue-500 transition flex items-center gap-2">
-                        <FaBars /> Категории
-                    </Link>
-                </div>
+    const resetAuthForms = () => {
+        setShowSignInModal(false);
+        setShowSignUpModal(false);
+    };
 
-                <div className="flex-1 mx-6">
-                    <div className="relative" id="search-bar">
-                        <form onSubmit={(e) => e.preventDefault()} className="flex gap-2">
+    const handleLogout = () => {
+        logoutUser();
+        setIsAuth(false);
+        setUser(null);
+        router.refresh();
+        router.push("/");
+    };
+
+    return (
+        <>
+            <header className="fixed top-0 left-0 w-full h-20 bg-gradient-to-r from-[#5E54F3] to-[#00C2FA] z-50 shadow-md">
+                <div className="container mx-auto px-4 h-full flex items-center justify-between">
+                    {/* Логотип и категории */}
+                    <div className="flex items-center space-x-4">
+                        <Link href="/" className="flex items-center">
+                            <Image
+                                src="/logo.png"
+                                alt="Barybar"
+                                width={120}
+                                height={40}
+                                className="h-10 w-auto"
+                            />
+                        </Link>
+
+                        <Link
+                            href="/categories"
+                            className="hidden md:flex items-center space-x-2 px-3 py-2 border border-white rounded-lg text-white hover:bg-white/10 transition"
+                        >
+                            {/*<Image*/}
+                            {/*    src="/category.png"*/}
+                            {/*    alt="Categories"*/}
+                            {/*    width={20}*/}
+                            {/*    height={20}*/}
+                            {/*/>*/}
+                            <span className="font-semibold text-sm">Категории</span>
+                        </Link>
+                    </div>
+
+                    {/* Поиск (только на десктопе) */}
+                    <div className="hidden md:block flex-1 max-w-md mx-4 relative">
+                        <div className="relative">
                             <input
                                 type="text"
                                 value={query}
                                 onChange={(e) => setQuery(e.target.value)}
-                                placeholder="Поиск..."
-                                className="w-full px-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                placeholder="Поиск сервиса"
+                                className="w-full pl-4 pr-10 py-2 rounded-lg border border-white bg-transparent text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50"
                             />
-                        </form>
-                        <FaSearch className="absolute right-3 top-3 text-gray-500" />
+                            <FaSearch className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white" />
+                        </div>
+
                         {results.length > 0 && (
-                            <ul className="absolute mt-2 w-full border rounded-lg p-2 bg-white shadow-lg z-30">
-                                {results.map((listing) => (
-                                    <li
+                            <div className="absolute mt-1 w-full bg-white rounded-lg shadow-lg z-30 max-h-60 overflow-y-auto">
+                                {results.map((listing: any) => (
+                                    <div
                                         key={listing.id}
                                         onClick={() => handleSelectListing(listing.id)}
-                                        className="p-2 hover:bg-gray-100 cursor-pointer"
+                                        className="p-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
                                     >
-                                        {listing.title}
-                                    </li>
+                                        <p className="text-gray-800 font-medium">{listing.title}</p>
+                                        <p className="text-sm text-gray-500">{listing.price} ₽/день</p>
+                                    </div>
                                 ))}
-                            </ul>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Кнопки авторизации/профиль */}
+                    <div className="flex items-center space-x-3">
+                        {isAuth ? (
+                            <>
+                                <CreateListingModal />
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                                        className="flex items-center space-x-2 px-3 py-2 rounded-lg border border-white text-white hover:bg-white/10 transition"
+                                    >
+                                        {user?.avatar ? (
+                                            <img
+                                                src={user.avatar}
+                                                alt="Аватар"
+                                                className="w-8 h-8 rounded-full"
+                                            />
+                                        ) : (
+                                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+                                                <FaUser className="text-white" />
+                                            </div>
+                                        )}
+                                        <span className="font-semibold text-sm">{user?.firstName || "Профиль"}</span>
+                                    </button>
+
+                                    {isDropdownOpen && (
+                                        <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg z-30 py-1">
+                                            <Link href="/profile">
+                                                <div className="px-4 py-2 hover:bg-gray-100 transition cursor-pointer">
+                                                    Мой профиль
+                                                </div>
+                                            </Link>
+                                            <Link href="/listing/my-listings">
+                                                <div className="px-4 py-2 hover:bg-gray-100 transition cursor-pointer">
+                                                    Мои объявления
+                                                </div>
+                                            </Link>
+                                            <Link href="/bookings">
+                                                <div className="px-4 py-2 hover:bg-gray-100 transition cursor-pointer">
+                                                    Мои бронирования
+                                                </div>
+                                            </Link>
+                                            <div className="border-t border-gray-200 my-1"></div>
+                                            <button
+                                                onClick={handleLogout}
+                                                className="w-full text-left px-4 py-2 hover:bg-gray-100 transition text-red-500"
+                                            >
+                                                Выйти
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <button
+                                    onClick={() => {
+                                        resetAuthForms();
+                                        setShowSignInModal(true);
+                                    }}
+                                    className="px-4 py-2 rounded-lg border border-white text-white hover:bg-white/10 transition"
+                                >
+                                    Войти
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        resetAuthForms();
+                                        setShowSignUpModal(true);
+                                    }}
+                                    className="px-4 py-2 rounded-lg bg-[#FFDA63] text-[#5E54F3] hover:bg-[#FFE58A] transition"
+                                >
+                                    Зарегистрироваться
+                                </button>
+                            </>
+                        )}
+
+                        {/* Кнопка меню для мобильных */}
+                        <button
+                            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                            className="md:hidden p-2 text-white"
+                        >
+                            <FaBars size={20} />
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            {/* Мобильное меню */}
+            {isMobileMenuOpen && (
+                <div className="md:hidden fixed top-20 left-0 right-0 bg-white shadow-lg z-40 p-4">
+                    <div className="mb-4">
+                        <div className="relative">
+                            <input
+                                type="text"
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                placeholder="Поиск сервиса"
+                                className="w-full pl-4 pr-10 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <FaSearch className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                        </div>
+
+                        {results.length > 0 && (
+                            <div className="mt-1 bg-white rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                {results.map((listing: any) => (
+                                    <div
+                                        key={listing.id}
+                                        onClick={() => {
+                                            handleSelectListing(listing.id);
+                                            setIsMobileMenuOpen(false);
+                                        }}
+                                        className="p-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
+                                    >
+                                        <p className="text-gray-800 font-medium">{listing.title}</p>
+                                        <p className="text-sm text-gray-500">{listing.price} ₽/день</p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <Link
+                            href="/categories"
+                            className="block px-4 py-2 rounded-lg hover:bg-gray-100 transition"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                            Категории
+                        </Link>
+
+                        {isAuth ? (
+                            <>
+                                <CreateListingModal mobileView onClose={() => setIsMobileMenuOpen(false)} />
+                                <Link
+                                    href="/profile"
+                                    className="block px-4 py-2 rounded-lg hover:bg-gray-100 transition"
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                >
+                                    Мой профиль
+                                </Link>
+                                <Link
+                                    href="/listing/my-listings"
+                                    className="block px-4 py-2 rounded-lg hover:bg-gray-100 transition"
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                >
+                                    Мои объявления
+                                </Link>
+                                <Link
+                                    href="/bookings"
+                                    className="block px-4 py-2 rounded-lg hover:bg-gray-100 transition"
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                >
+                                    Мои бронирования
+                                </Link>
+                                <button
+                                    onClick={() => {
+                                        handleLogout();
+                                        setIsMobileMenuOpen(false);
+                                    }}
+                                    className="w-full text-left px-4 py-2 rounded-lg hover:bg-gray-100 transition text-red-500"
+                                >
+                                    Выйти
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <button
+                                    onClick={() => {
+                                        resetAuthForms();
+                                        setShowSignInModal(true);
+                                        setIsMobileMenuOpen(false);
+                                    }}
+                                    className="w-full text-left px-4 py-2 rounded-lg hover:bg-gray-100 transition"
+                                >
+                                    Войти
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        resetAuthForms();
+                                        setShowSignUpModal(true);
+                                        setIsMobileMenuOpen(false);
+                                    }}
+                                    className="w-full px-4 py-2 rounded-lg bg-[#FFDA63] text-[#5E54F3] hover:bg-[#FFE58A] transition"
+                                >
+                                    Зарегистрироваться
+                                </button>
+                            </>
                         )}
                     </div>
                 </div>
+            )}
 
-                <div className="flex items-center space-x-6">
-                    {isAuth ? (
-                        <>
-                            <Link
-                                href="/listing/create-listing"
-                                className="px-6 py-2 bg-blue-900 text-white rounded-lg shadow-md hover:bg-green-600 transition"
-                            >
-                                Подать объявление
-                            </Link>
-
-                            <div className="relative">
-                                <div
-                                    className="flex items-center gap-2 cursor-pointer hover:text-blue-500 transition"
-                                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                                >
-                                    {user?.avatar ? (
-                                        <img src={user.avatar} alt="Аватар" className="w-8 h-8 rounded-full" />
-                                    ) : (
-                                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                                            <FaUser className="text-gray-600" />
-                                        </div>
-                                    )}
-                                    <span className="text-gray-700 font-medium">{user?.firstName || "Профиль"}</span>
-                                </div>
-
-                                {isDropdownOpen && (
-                                    <div id="user-menu" className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-md z-30 py-2">
-                                        <Link href="/profile">
-                                            <div className="flex items-center px-4 py-2 hover:bg-gray-100 transition cursor-pointer">
-                                                <FaUser className="mr-3 text-gray-500" />
-                                                <span>Мой профиль</span>
-                                            </div>
-                                        </Link>
-                                        <Link href="/listing/my-listings">
-                                            <div className="flex items-center px-4 py-2 hover:bg-gray-100 transition cursor-pointer">
-                                                <FaList className="mr-3 text-gray-500" />
-                                                <span>Мои объявления</span>
-                                            </div>
-                                        </Link>
-                                        <Link href="/bookings">
-                                            <div className="flex items-center px-4 py-2 hover:bg-gray-100 transition cursor-pointer">
-                                                <FaCalendarAlt className="mr-3 text-gray-500" />
-                                                <span>Мои бронирования</span>
-                                            </div>
-                                        </Link>
-                                        <div className="border-t border-gray-200 my-1"></div>
-                                        <div
-                                            className="flex items-center px-4 py-2 hover:bg-gray-100 transition cursor-pointer text-red-500"
-                                            onClick={handleLogout}
-                                        >
-                                            <FaSignOutAlt className="mr-3" />
-                                            <span>Выйти</span>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </>
-                    ) : (
-                        <div className="flex space-x-4">
-                            <Link
-                                href="/auth/sign-in"
-                                className="px-4 py-2 text-gray-700 hover:text-blue-500 transition"
-                            >
-                                Вход
-                            </Link>
-                            <Link
-                                href="/auth/sign-up"
-                                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
-                            >
-                                Регистрация
-                            </Link>
-                        </div>
-                    )}
+            {/* Модальные окна авторизации */}
+            {showSignInModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
+                    <div className="bg-white rounded-xl shadow-lg w-full max-w-md relative">
+                        <button
+                            onClick={() => setShowSignInModal(false)}
+                            className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+                        >
+                            <FaTimes size={20} />
+                        </button>
+                        <SignInPage
+                            onSuccess={() => {
+                                setShowSignInModal(false);
+                                router.refresh();
+                            }}
+                            onSwitchToSignUp={() => {
+                                setShowSignInModal(false);
+                                setShowSignUpModal(true);
+                            }}
+                        />
+                    </div>
                 </div>
-            </div>
-        </header>
+            )}
+
+            {showSignUpModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
+                    <div className="bg-white rounded-xl shadow-lg w-full max-w-md relative">
+                        <button
+                            onClick={() => setShowSignUpModal(false)}
+                            className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+                        >
+                            <FaTimes size={20} />
+                        </button>
+                        <SignUpPage
+                            onSuccess={() => {
+                                setShowSignUpModal(false);
+                                router.refresh();
+                            }}
+                            onSwitchToSignIn={() => {
+                                setShowSignUpModal(false);
+                                setShowSignInModal(true);
+                            }}
+                        />
+                    </div>
+                </div>
+            )}
+        </>
     );
 };
 

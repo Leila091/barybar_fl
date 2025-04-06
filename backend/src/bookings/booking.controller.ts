@@ -1,9 +1,9 @@
-import { Controller, Post, Body, UseGuards, Req, Get } from "@nestjs/common";
+import { Controller, Post, Body, UseGuards, Req, Get, Query } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { BookingService } from "./booking.service";
 import { CreateBookingDto } from "../bookings/dto/create-booking";
 
-@Controller("bookings") // Убедитесь, что путь правильный
+@Controller("bookings")
 export class BookingController {
     constructor(private readonly bookingService: BookingService) {}
 
@@ -14,10 +14,6 @@ export class BookingController {
         @Req() req,
     ) {
         const userId = req.user.userId;
-
-        console.log("\ud83d\udccc Данные, полученные в контроллере:", createBookingDto);
-        console.log("\ud83d\udccc ID пользователя:", userId);
-
         return this.bookingService.createBooking(createBookingDto, userId);
     }
 
@@ -28,11 +24,11 @@ export class BookingController {
 
     @Get('my')
     @UseGuards(AuthGuard('jwt'))
-    async getUserBookings(@Req() req) {
+    async getUserBookings(
+        @Req() req,
+        @Query('type') type: 'active' | 'completed'
+    ) {
         const userId = req.user.userId;
-        return this.bookingService.getUserBookings(userId);
+        return this.bookingService.getUserBookings(userId, type || 'active');
     }
-
-
-
 }

@@ -13,7 +13,6 @@ export class BookingService {
 
             const { listingId, startDate, endDate, comment } = dto;
 
-            // 1. Проверяем существование listing (используем правильные имена полей)
             const listingCheck = await client.query(
                 'SELECT id, "startDate" as "startDate", "endDate" as "endDate" FROM listings WHERE id = $1',
                 [listingId]
@@ -25,12 +24,10 @@ export class BookingService {
 
             const listing = listingCheck.rows[0];
 
-            // 2. Проверяем, что даты бронирования в рамках доступных дат listing
             if (!this.checkDatesAvailability(listing.startDate, listing.endDate, startDate, endDate)) {
                 throw new ConflictException('Выбранные даты выходят за пределы доступного периода');
             }
 
-            // 3. Проверяем доступность дат (используем правильные имена полей из таблицы bookings)
             const availabilityCheck = await client.query(
                 `SELECT id FROM bookings
                  WHERE listing_id = $1
@@ -46,7 +43,6 @@ export class BookingService {
                 throw new ConflictException('Выбранные даты уже заняты');
             }
 
-            // 4. Получаем данные пользователя
             const user = await client.query(
                 'SELECT first_name, last_name, email, phone FROM users WHERE id = $1',
                 [userId]
@@ -59,7 +55,6 @@ export class BookingService {
             const { first_name, last_name, email, phone } = user.rows[0];
             const fullName = `${first_name} ${last_name}`;
 
-            // 5. Создаем бронирование (используем snake_case для таблицы bookings)
             const result = await client.query(
                 `INSERT INTO bookings (
                     listing_id,
@@ -86,7 +81,6 @@ export class BookingService {
                 ]
             );
 
-            // 6. Обновляем статус бронирования в listings (используем camelCase)
             await client.query(
                 `UPDATE listings SET "bookingStatus" = 'booked' WHERE id = $1`,
                 [listingId]
@@ -102,8 +96,49 @@ export class BookingService {
         }
     }
 
-    // backend/src/bookings/booking.service.ts
-    async getUserBookings(userId: number) {
+    async getUserBookings(userId: number, type: 'active' | 'completed' = 'active') {
+        const query = `
+            SELECT
+                b.id,
+                b.listing_id as "listingId",
+                l.title,
+                b.start_date as "startDate",
+                b.end_date as "endDate",
+                b.status,
+                l.location,
+                l.price,
+                CASE 
+                    WHEN l.photos IS NULL OR l.photos = '' THEN NULL
+                    WHEN l.photos LIKE '{%}%' THEN (l.photos::text[])[1]
+                    ELSE l.photos
+                END as "mainPhoto",
+                EXISTS (
+                    SELECT 1
+                    FROM reviews r
+                    WHERE r.booking_id = b.id
+                ) as "hasReview",
+                (
+                    SELECT json_build_object(
+                        'id', r.id,
+                        'rating', r.rating,
+                        'comment', r.comment,
+                        'createdAt', r.created_at
+                    )
+                    FROM reviews r
+                    WHERE r.booking_id = b.id
+                ) as "review"
+            FROM bookings b
+            JOIN listings l ON b.listing_id = l.id
+            WHERE b.user_id = $1
+            ORDER BY b.created_at DESC`;
+
+        console.log('Fetching bookings for user:', userId);
+        const result = await this.pool.query(query, [userId]);
+        console.log('Found bookings:', result.rows);
+        return result.rows;
+    }
+
+    async getAllBookings() {
         const query = `
             SELECT
                 b.id,
@@ -114,35 +149,26 @@ export class BookingService {
                 l.id as "listingId",
                 l.title,
                 l.price,
-                l."mainPhoto",
-                l.location
+                CASE 
+                    WHEN l.photos IS NULL OR l.photos = '' THEN NULL
+                    WHEN l.photos LIKE '{%}%' THEN (l.photos::text[])[1]
+                    ELSE l.photos
+                END as "mainPhoto",
+                l.location,
+                (SELECT COUNT(*) FROM reviews WHERE booking_id = b.id) as "hasReview",
+                (
+                    SELECT json_build_object(
+                        'id', r.id,
+                        'rating', r.rating,
+                        'comment', r.comment,
+                        'createdAt', r.created_at
+                    )
+                    FROM reviews r
+                    WHERE r.booking_id = b.id
+                ) as "review"
             FROM bookings b
-                     JOIN listings l ON b.listing_id = l.id
-            WHERE b.user_id = $1
-            ORDER BY b.created_at DESC
-        `;
-
-        const result = await this.pool.query(query, [userId]);
-        return result.rows;
-    }
-
-    async getAllBookings() {
-        const query = `
-      SELECT
-        b.id,
-        b.start_date as "startDate",
-        b.end_date as "endDate",
-        b.status,
-        b.created_at as "createdAt",
-        l.id as "listingId",
-        l.title,
-        l.price,
-        l."mainPhoto",
-        l.location
-      FROM bookings b
-      JOIN listings l ON b.listing_id = l.id
-      ORDER BY b.created_at DESC
-    `;
+            JOIN listings l ON b.listing_id = l.id
+            ORDER BY b.created_at DESC`;
 
         const result = await this.pool.query(query);
         return result.rows;
@@ -153,7 +179,6 @@ export class BookingService {
         try {
             await client.query('BEGIN');
 
-            // Проверяем, существует ли бронирование и кому оно принадлежит
             const bookingCheck = await client.query(
                 `SELECT id, user_id, listing_id FROM bookings WHERE id = $1`,
                 [bookingId]
@@ -165,7 +190,6 @@ export class BookingService {
 
             const booking = bookingCheck.rows[0];
 
-            // Проверяем, является ли пользователь арендатором или владельцем объявления
             const listingCheck = await client.query(
                 `SELECT user_id FROM listings WHERE id = $1`,
                 [booking.listing_id]
@@ -181,13 +205,11 @@ export class BookingService {
                 throw new ConflictException('Вы не можете отменить это бронирование');
             }
 
-            // Обновляем статус на "canceled"
             await client.query(
                 `UPDATE bookings SET status = 'canceled' WHERE id = $1`,
                 [bookingId]
             );
 
-            // Освобождаем товар в listings
             await client.query(
                 `UPDATE listings SET "bookingStatus" = 'available' WHERE id = $1`,
                 [booking.listing_id]
@@ -203,23 +225,31 @@ export class BookingService {
         }
     }
 
+    async completeExpiredBookings() {
+        const query = `
+            UPDATE bookings 
+            SET status = 'completed'
+            WHERE end_date < NOW() 
+            AND status = 'confirmed'
+            RETURNING *`;
+        const result = await this.pool.query(query);
+        return result.rows;
+    }
+
     private checkDatesAvailability(
-            listingStart: string | Date,
-            listingEnd: string | Date,
-            bookingStart: string | Date,
-            bookingEnd: string | Date
+        listingStart: string | Date,
+        listingEnd: string | Date,
+        bookingStart: string | Date,
+        bookingEnd: string | Date
     ): boolean {
-            const listingStartDate = new Date(listingStart);
-            const listingEndDate = new Date(listingEnd);
-            const bookingStartDate = new Date(bookingStart);
-            const bookingEndDate = new Date(bookingEnd);
+        const listingStartDate = new Date(listingStart);
+        const listingEndDate = new Date(listingEnd);
+        const bookingStartDate = new Date(bookingStart);
+        const bookingEndDate = new Date(bookingEnd);
 
-            return (
-                bookingStartDate >= listingStartDate &&
-                bookingEndDate <= listingEndDate
-            );
-        }
-
-
-
+        return (
+            bookingStartDate >= listingStartDate &&
+            bookingEndDate <= listingEndDate
+        );
+    }
 }

@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from "typeorm";
+import { Review } from "../Review/review.entity";
 
 @Entity()
 export class Booking {
@@ -17,7 +18,10 @@ export class Booking {
     @Column()
     endDate: Date;
 
-    @Column({ default: "active" })
+    @Column({
+        default: "confirmed",
+        enum: ["confirmed", "canceled", "completed"]
+    })
     status: string;
 
     @Column({ type: "timestamp", default: () => "CURRENT_TIMESTAMP" })
@@ -25,4 +29,7 @@ export class Booking {
 
     @Column({ type: "timestamp", default: () => "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" })
     updatedAt: Date;
+
+    @OneToMany(() => Review, (review) => review.booking)
+    reviews: Review[];
 }

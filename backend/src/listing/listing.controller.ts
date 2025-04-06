@@ -18,7 +18,8 @@ import {
     HttpCode,
     HttpStatus,
     Logger,
-    Query,// Добавлен импорт Logger
+    Query,
+    HttpException,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ListingService } from './listing.service';
@@ -31,7 +32,7 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Controller('listings')
 export class ListingController {
-    private readonly logger = new Logger(ListingController.name); // Логгер вынесен в начало класса
+    private readonly logger = new Logger(ListingController.name);
 
     constructor(
         private readonly locationService: LocationService,
@@ -43,11 +44,9 @@ export class ListingController {
     @Post('create')
     @UseGuards(AuthGuard('jwt'))
     async createListing(@Body() createListingDto: CreateListingDto, @Request() req) {
-        this.logger.log('Пользователь из запроса:', req.user); // Логируем весь объект пользователя
-        const userId = req.user.userId; // Извлекаем userId из токена
+        this.logger.log('Пользователь из запроса:', req.user);
+        const userId = req.user.userId;
         this.logger.log(`Запрос на создание объявления от пользователя: ${userId}`);
-
-        // Логируем сам объект createListingDto
         this.logger.log('Данные, полученные в запросе:', createListingDto);
 
         const categoryId = Number(createListingDto.categoryId);
@@ -63,41 +62,65 @@ export class ListingController {
         return this.listingService.createListing(createListingDto, userId);
     }
 
-
     @Get('my-listings')
     @UseGuards(AuthGuard('jwt'))
     async getMyListings(@Request() req) {
         this.logger.log(`Запрос на получение объявлений пользователя: ${req.user.userId}`);
-        console.log('Пользователь из запроса:', req.user); // Логируем весь объект пользователя
-        const listings = await this.listingService.getListingsByUser(req.user.userId); // Используем req.user.userId
-        console.log('Результат запроса:', listings); // Логируем результат
+        console.log('Пользователь из запроса:', req.user);
+        const listings = await this.listingService.getListingsByUser(req.user.userId);
+        console.log('Результат запроса:', listings);
         return listings;
     }
 
+    @Get('search')
+    async searchListings(@Query('q') query: string) {
+        if (!query) return [];
+        this.logger.log(`🔍 Поиск объявлений: ${query}`);
+        return this.listingService.searchByTitle(query);
+    }
 
-    // @Get(':id')
-    // async getListingById(
-    //     @Param('id', ParseIntPipe) id: number,
-    //     @Req() req,
-    // ) {
-    //     const userId = req.user?.id || null;
-    //     this.logger.log(`Запрос на объявление с ID: ${id}, пользователь: ${userId}`);
-    //
-    //     return this.listingService.getListingById(id, userId);
-    // }
+    @Get('latest')
+    async getLatestListings() {
+        this.logger.log('Запрос на получение последних объявлений');
+        return this.listingService.getLatestListings();
+    }
 
+    @Get('category/:id')
+    async getListingsByCategory(
+        @Param('id') id: string,
+        @Query('locationId') locationId?: string,
+        @Query('minPrice') minPrice?: string,
+        @Query('maxPrice') maxPrice?: string,
+        @Query('sortBy') sortBy?: 'price_asc' | 'price_desc' | 'date_asc' | 'date_desc',
+        @Query('status') status?: string
+    ): Promise<any[]> {
+        try {
+            const filters = {
+                locationId: locationId ? parseInt(locationId) : undefined,
+                minPrice: minPrice ? parseFloat(minPrice) : undefined,
+                maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
+                sortBy,
+                status: status || 'published'
+            };
 
-    // @Get(':id')
-    // async getListingById(
-    //     @Param('id', new ParseIntPipe({ errorHttpStatusCode: 400 })) id: number,
-    //     @Req() req,
-    // ) {
-    //     const userId = req.user?.id || null;
-    //     this.logger.log(`Запрос на объявление с ID: ${id}, пользователь: ${userId}`);
-    //     return this.listingService.getListingById(id, userId);
-    // }
+            console.log('Filters:', filters);
 
+            const listings = await this.listingService.getListingsByCategory(parseInt(id), filters);
+            return listings;
+        } catch (error) {
+            console.error('Error in getListingsByCategory:', error);
+            throw new HttpException(
+                'Failed to fetch listings',
+                HttpStatus.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
 
+    @Get(':id')
+    async getListingById(@Param('id', ParseIntPipe) id: number, @Req() req) {
+        this.logger.log(`📌 Запрос объявления с ID: ${id}`);
+        return this.listingService.getListingById(id, req.user?.id || null);
+    }
 
     @Patch(':id')
     @UseGuards(AuthGuard('jwt'))
@@ -107,16 +130,14 @@ export class ListingController {
         @Body() updateListingDto: UpdateListingDto,
         @Request() req,
     ) {
-        const userId = req.user.userId; // Используем req.user.userId
+        const userId = req.user.userId;
         this.logger.log(`Запрос на обновление объявления с ID: ${id}, пользователь: ${userId}`);
 
-        // Проверяем, что объявление существует и не в статусе "архив"
         const existing = await this.listingService.getListingById(id, userId);
         if (existing.status === 'archived') {
             throw new ForbiddenException('Редактирование архивных объявлений запрещено');
         }
 
-        // Если categoryId передан, проверяем, что категория существует
         if (updateListingDto.categoryId) {
             const category = await this.categoryService.getCategoryById(updateListingDto.categoryId);
             if (!category) {
@@ -124,7 +145,6 @@ export class ListingController {
             }
         }
 
-        // Обновляем объявление
         const updated = await this.listingService.updateListing(id, updateListingDto, userId);
 
         if (!updated) {
@@ -138,16 +158,10 @@ export class ListingController {
         };
     }
 
-    @Get('category/:id')
-    async getListingsByCategory(@Param('id', ParseIntPipe) id: number) {
-        this.logger.log(`Запрос на объявления по категории с ID: ${id}`);
-        return this.listingService.getListingsByCategory(id, 'published');
-    }
-
     @Patch(':id/publish')
     @UseGuards(AuthGuard('jwt'))
     async publishListing(@Param('id', ParseIntPipe) id: number, @Request() req) {
-        const userId = req.user.userId; // Используем req.user.userId
+        const userId = req.user.userId;
         this.logger.log(`Запрос на публикацию объявления с ID: ${id}, пользователь: ${userId}`);
         return this.listingService.publishListing(id, userId);
     }
@@ -155,7 +169,7 @@ export class ListingController {
     @Patch(':id/archive')
     @UseGuards(AuthGuard('jwt'))
     async archiveListing(@Param('id', ParseIntPipe) id: number, @Request() req) {
-        const userId = req.user.userId; // Используем req.user.userId
+        const userId = req.user.userId;
         this.logger.log(`Запрос на архивирование объявления с ID: ${id}, пользователь: ${userId}`);
         return this.listingService.archiveListing(id, userId);
     }
@@ -180,19 +194,4 @@ export class ListingController {
             throw new InternalServerErrorException('Ошибка при загрузке файлов');
         }
     }
-
-    @Get('search') // ⬅️ Сначала обработчик поиска
-    async searchListings(@Query('q') query: string) {
-        if (!query) return [];
-        this.logger.log(`🔍 Поиск объявлений: ${query}`);
-        return this.listingService.searchByTitle(query);
-    }
-
-    @Get(':id') // ⬅️ Потом обработчик получения по ID
-    async getListingById(@Param('id', ParseIntPipe) id: number, @Req() req) {
-        this.logger.log(`📌 Запрос объявления с ID: ${id}`);
-        return this.listingService.getListingById(id, req.user?.id || null);
-    }
-
-
 }

@@ -1,5 +1,6 @@
-import { IsOptional, IsString, IsNumber, IsDateString, IsArray, IsIn } from 'class-validator';
+import { IsOptional, IsString, IsNumber, IsDateString, IsArray, IsIn, IsEnum } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { PriceType } from './create-listing.dto';
 
 export class UpdateListingDto {
     @IsOptional()
@@ -14,6 +15,15 @@ export class UpdateListingDto {
     @IsNumber()
     @Transform(({ value }) => (typeof value === 'string' ? parseFloat(value) : value)) // Преобразуем строку в число
     price?: number;
+
+    @IsOptional()
+    @IsEnum(PriceType)
+    priceType?: PriceType;
+
+    @IsOptional()
+    @IsNumber()
+    @Transform(({ value }) => (typeof value === 'string' ? parseFloat(value) : value))
+    quantity?: number;
 
     @IsOptional()
     @Transform(({ value }) => (value && value.name ? value.name : value))  // Преобразуем объект location в строку

@@ -12,4 +12,11 @@ export class MailController {
         await this.mailService.sendVerificationEmail(to, code); // Используем sendVerificationEmail
         return 'Email sent successfully';
     }
+
+    @Post('send-reset')
+    async sendResetEmail(@Body() emailData: { to: string; resetLink: string }) {
+        const { to, resetLink } = emailData;
+        await this.mailService.sendPasswordResetEmail(to, resetLink);
+        return { message: 'Password reset email sent successfully' };
+    }
 }

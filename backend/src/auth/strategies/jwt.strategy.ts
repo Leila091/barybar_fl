@@ -7,14 +7,14 @@ import { jwtConstants } from '../constants';
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor() {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(), // Извлекаем токен из заголовка Authorization
-      ignoreExpiration: false, // Не игнорируем срок действия токена
-      secretOrKey: jwtConstants.secret, // Секретный ключ для проверки токена
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ignoreExpiration: false,
+      secretOrKey: jwtConstants.secret,
     });
   }
 
   async validate(payload: any) {
-    console.log('Decoded JWT Payload:', payload); // Посмотри, что приходит
-    return { userId: payload.sub, email: payload.email }; // userId, а не id
+    console.log('Decoded JWT Payload:', payload);
+    return { userId: payload.sub, email: payload.email };
   }
 }

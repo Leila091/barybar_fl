@@ -12,10 +12,17 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(email: string, password: string): Promise<any> {
+    console.log("🔍 Проверка пользователя:", email); // Логируем входные данные
+
     const user = await this.authService.validateUser(email, password);
+
     if (!user) {
+      console.log("❌ Ошибка авторизации: Неверный email или пароль"); // Логируем ошибку
       throw new UnauthorizedException('Неверный email или пароль');
     }
-    return user; // Возвращаем пользователя, если аутентификация успешна
+
+    console.log("✅ Пользователь найден:", user.email); // Логируем успешную аутентификацию
+    return user;
   }
+
 }

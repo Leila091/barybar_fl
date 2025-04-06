@@ -35,4 +35,25 @@ export class MailService {
             throw new Error('Failed to send verification email');
         }
     }
+
+    async sendPasswordResetEmail(to: string, code: string) {
+        const from = this.configService.get<string>('RESEND_FROM_EMAIL');
+        if (!from) {
+            throw new Error('Resend "from" email is missing. Check your .env file.');
+        }
+
+        try {
+            const data = await this.resend.emails.send({
+                from,
+                to,
+                subject: 'Password Reset Request',
+                html: `<p>Your password reset code is: <strong>${code}</strong></p>`,
+            });
+            this.logger.log(`Письмо с кодом сброса пароля отправлено на почту: ${to}`);
+            return data;
+        } catch (error) {
+            this.logger.error(`Ошибка при отправке письма на почту: ${to}`, error);
+            throw new Error('Failed to send password reset email');
+        }
+    }
 }
