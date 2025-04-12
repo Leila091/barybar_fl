@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
 import { User } from '../users/user.entity';
-import { IsString, IsOptional, IsIn } from 'class-validator';
+import { IsString, IsOptional, IsIn, IsArray } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 
@@ -66,4 +66,8 @@ export class Listing {
         default: PriceType.FIXED,
     })
     priceType: PriceType;
+
+    @IsOptional()
+    @IsArray()
+    deletedPhotos?: string[];
 }

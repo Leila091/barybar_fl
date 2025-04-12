@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsNumber, IsDateString, IsArray, IsIn, IsEnum } from 'class-validator';
+import { IsOptional, IsString, IsNumber, IsDateString, IsArray, IsIn, IsEnum} from 'class-validator';
 import { Transform } from 'class-transformer';
 import { PriceType } from './create-listing.dto';
 
@@ -53,4 +53,8 @@ export class UpdateListingDto {
     @IsOptional()
     @IsIn(['available', 'booked', 'pending'])
     bookingStatus?: string;
+
+    @IsOptional()
+    @IsArray()
+    deletedPhotos?: string[];
 }

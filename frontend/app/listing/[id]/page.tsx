@@ -68,8 +68,8 @@ const Notification: React.FC<NotificationProps> = ({ message, type, onClose }) =
     return (
         <div className={`fixed top-4 right-4 p-4 rounded-lg shadow-lg flex items-center space-x-2 ${
             type === 'success' ? 'bg-green-100 text-green-800' :
-            type === 'error' ? 'bg-red-100 text-red-800' :
-            'bg-blue-100 text-blue-800'
+                type === 'error' ? 'bg-red-100 text-red-800' :
+                    'bg-blue-100 text-blue-800'
         }`}>
             {icon[type]}
             <span>{message}</span>
@@ -246,14 +246,14 @@ const DatePicker = ({ value, onChange, min, max, label, error }) => {
                 type="date"
                 value={value}
                 onChange={onChange}
-                className={`w-full p-3 border rounded-lg ${
-                    error ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:ring-2 focus:ring-blue-400'
-                } outline-none transition`}
+                className={`w-full p-2 border rounded-lg ${
+                    error ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                } focus:ring-blue-500 focus:border-blue-500`}
                 min={min}
                 max={max}
                 required
             />
-            {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+            {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
         </div>
     );
 };
@@ -269,8 +269,8 @@ const ListingDetailsPage: React.FC = () => {
     const [bookingStartDate, setBookingStartDate] = useState("");
     const [bookingEndDate, setBookingEndDate] = useState("");
     const [dateError, setDateError] = useState(null);
-    const [bookingSuccess, setBookingSuccess] = useState(false);
     const [showBookingForm, setShowBookingForm] = useState(false);
+    const [showReviews, setShowReviews] = useState(false); // Добавлено состояние для отзывов
     const [userData, setUserData] = useState({ comment: "" });
     const [user, setUser] = useState(null);
     const [isUserLoading, setIsUserLoading] = useState(true);
@@ -422,6 +422,9 @@ const ListingDetailsPage: React.FC = () => {
             startDate: bookingStartDate,
             endDate: bookingEndDate,
             comment: userData.comment?.trim() || null,
+            fullName: `${user?.firstName || ''} ${user?.lastName || ''}`,
+            email: user?.email || '',
+            phone: user?.phone || ''
         };
 
         try {
@@ -545,14 +548,14 @@ const ListingDetailsPage: React.FC = () => {
     );
 
     return (
-        <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6">
+        <div className="min-h-screen bg-gray-50 pt-20 px-4 sm:px-6">
             <div className="max-w-6xl mx-auto">
                 <Breadcrumbs
                     items={[
                         { label: "Главная", href: "/" },
                         { label: "Каталог", href: "/categories" },
-                        { label: "Категория", href: listing.categoryId ? `/categories/${listing.categoryId}` : "/categories" },
-                        { label: listing.title.length > 30 ? `${listing.title.substring(0, 30)}...` : listing.title },
+                        { label: "Категория", href: listing?.categoryId ? `/categories/${listing.categoryId}` : "/categories" },
+                        { label: listing?.title?.length > 30 ? `${listing.title.substring(0, 30)}...` : listing?.title || "" },
                     ]}
                 />
 
@@ -566,266 +569,214 @@ const ListingDetailsPage: React.FC = () => {
                     </div>
                 )}
 
-                <div className="bg-white rounded-xl shadow-md overflow-hidden">
-                    {/* Заголовок и основная информация */}
-                    <div className="p-6 border-b">
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">{listing.title}</h1>
-                                <div className="flex items-center space-x-4 text-sm text-gray-500 mb-4">
-                  <span className="flex items-center">
-                    <FaMapMarkerAlt className="mr-1" /> {listing.location || "Не указано"}
-                  </span>
-                                    {reviews.length > 0 && (
-                                        <span className="flex items-center">
-                                            <FaStar className="mr-1 text-yellow-400" />
-                                            {(reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length).toFixed(1)} ({reviews.length})
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                            {!isOwner && (
-                                <button
-                                    onClick={handleBookingClick}
-                                    className="hidden sm:inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                                >
-                                    Забронировать
-                                </button>
-                            )}
-                        </div>
-                        {/*<p className="text-gray-700">{listing.description}</p>*/}
-                    </div>
-
-                    {/* Галерея изображений */}
+                <div className="flex flex-col md:flex-row gap-6 mb-8">
+                    {/* Левая колонка - фото и описание */}
+                    <div className="md:w-1/2">
+                        <div className="bg-white rounded-xl shadow-md overflow-hidden">
+                            {/* Галерея изображений */}
                     {photos.length > 0 && (
-                        <div className="p-6 border-b">
-                            <div className="relative">
+                                <div className="p-6 border-b">
                                 <Swiper
-                                    spaceBetween={0}
-                                    navigation={{
-                                        nextEl: '.swiper-button-next',
-                                        prevEl: '.swiper-button-prev',
-                                    }}
-                                    thumbs={{ swiper: thumbsSwiper && !thumbsSwiper.destroyed ? thumbsSwiper : null }}
+                                        spaceBetween={0}
+                                        navigation
+                                        thumbs={{ swiper: thumbsSwiper }}
                                     modules={[Navigation, Thumbs]}
-                                    className="rounded-lg overflow-hidden mb-4"
-                                >
-                                    {photos.map((photo, index) => {
-                                        const correctedUrl = photo.startsWith('https:/') && !photo.startsWith('https://')
-                                            ? photo.replace('https:/', 'https://')
-                                            : photo;
-
-                                        return (
+                                        className="rounded-lg overflow-hidden mb-4"
+                                    >
+                                        {photos.map((photo, index) => (
                                             <SwiperSlide key={index}>
                                                 <div className="relative aspect-video bg-gray-100">
                                                     <img
-                                                        src={correctedUrl}
+                                                        src={photo}
                                                         alt={`Фото объявления ${index + 1}`}
                                                         className="w-full h-full object-cover"
-                                                        onError={(event) => {
-                                                            (event.target as HTMLImageElement).style.display = 'none';
-                                                        }}
+                                                        onError={(e) => (e.currentTarget.style.display = 'none')}
                                                     />
                                                 </div>
                                             </SwiperSlide>
-                                        );
-                                    })}
+                                        ))}
                                 </Swiper>
-                                <div className="swiper-button-next"></div>
-                                <div className="swiper-button-prev"></div>
                             </div>
+                            )}
 
-                            <div className="mt-2">
-                                <Swiper
-                                    onSwiper={setThumbsSwiper}
-                                    spaceBetween={8}
-                                    slidesPerView={4}
-                                    freeMode={true}
-                                    watchSlidesProgress={true}
-                                    modules={[FreeMode, Navigation, Thumbs]}
-                                    className="thumbs-swiper"
-                                >
-                                    {photos.map((photo, index) => {
-                                        const correctedUrl = photo.startsWith('https:/') && !photo.startsWith('https://')
-                                            ? photo.replace('https:/', 'https://')
-                                            : photo;
-
-                                        return (
-                                            <SwiperSlide key={index}>
-                                                <div className="relative aspect-square cursor-pointer">
-                                                    <img
-                                                        src={correctedUrl}
-                                                        alt={`Превью ${index + 1}`}
-                                                        className="w-full h-full object-cover rounded-md border border-gray-200 hover:border-blue-400 transition-all"
-                                                        onError={(event) => {
-                                                            (event.target as HTMLImageElement).style.display = 'none';
-                                                        }}
-                                                    />
+                            {/* Информация о товаре */}
+                            <div className="p-6">
+                                <h1 className="text-2xl font-bold text-gray-900 mb-2">{listing?.title}</h1>
+                                <div className="flex items-center space-x-4 text-sm text-gray-500 mb-4">
+                                    <span className="flex items-center">
+                                        <FaMapMarkerAlt className="mr-1" /> {listing?.location || "Не указано"}
+                                    </span>
                                                 </div>
-                                            </SwiperSlide>
-                                        );
-                                    })}
-                                </Swiper>
+                                <p className="text-2xl font-bold text-blue-600 mb-4">
+                                    {listing?.price} ₸ <span className="text-sm font-normal">{getPriceTypeLabel(listing?.priceType)}</span>
+                                </p>
+
+                                <h2 className="text-xl font-bold mb-2">Описание</h2>
+                                <p className="text-gray-700 whitespace-pre-line">{listing?.description}</p>
                             </div>
                         </div>
-                    )}
+                    </div>
 
-                    {/* Основные характеристики */}
-                    <div className="p-6">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-xs flex items-start space-x-3">
-                                <div className="bg-blue-100 p-2 rounded-full">
-                                    <FaMoneyBillWave className="text-blue-600" />
-                                </div>
-                                <div>
-                                    <p className="text-sm text-gray-500">Цена</p>
-                                    <p className="font-bold text-gray-900">
-                                        {listing.price} ₸
-                                    </p>
-                                    <p className="text-xs text-gray-400">{getPriceTypeLabel(listing?.priceType)}</p>
-                                </div>
+                    {/* Правая колонка - бронирование */}
+                    <div className="md:w-1/2">
+                        <div className="bg-white rounded-xl shadow-md overflow-hidden sticky top-4">
+                            <div className="p-6 border-b">
+                                <h3 className="text-lg font-semibold mb-4 flex items-center">
+                                    <FaCalendarAlt className="mr-2 text-blue-500" />
+                                    Доступные даты
+                                </h3>
+                                <p className="text-gray-700">
+                                    {formatDate(listing?.startDate)} - {formatDate(listing?.endDate)}
+                                </p>
                             </div>
 
-                            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-xs flex items-start space-x-3">
-                                <div className="bg-blue-100 p-2 rounded-full">
-                                    <FaMapMarkerAlt className="text-blue-600" />
+                            <div className="p-6 border-b">
+                                <h3 className="text-lg font-semibold mb-4">Выберите даты бронирования</h3>
+                                <div className="grid grid-cols-2 gap-4 mb-4">
+                                    <DatePicker
+                                        value={bookingStartDate}
+                                        onChange={(e) => handleDateChange('start', e.target.value)}
+                                        min={listing?.startDate}
+                                        max={listing?.endDate}
+                                        label="Дата начала"
+                                    />
+                                    <DatePicker
+                                        value={bookingEndDate}
+                                        onChange={(e) => handleDateChange('end', e.target.value)}
+                                        min={bookingStartDate || listing?.startDate}
+                                        max={listing?.endDate}
+                                        label="Дата окончания"
+                                        disabled={!bookingStartDate}
+                                    />
                                 </div>
-                                <div>
-                                    <p className="text-sm text-gray-500">Локация</p>
-                                    <p className="font-bold text-gray-900">{listing.location || "Не указано"}</p>
-                                </div>
+                                {dateError && <p className="text-sm text-red-500">{dateError}</p>}
                             </div>
 
-                            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-xs flex items-start space-x-3">
-                                <div className="bg-blue-100 p-2 rounded-full">
-                                    <FaCalendarAlt className="text-blue-600" />
-                                </div>
+                            {showBookingForm ? (
+                                <div className="p-6">
+                                    <h3 className="text-lg font-semibold mb-4">Подтверждение бронирования</h3>
+
+                                    <div className="space-y-4 mb-6">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">ФИО</label>
+                                            <input
+                                                type="text"
+                                                value={user ? `${user.firstName || ''} ${user.lastName || ''}` : ''}
+                                                className="w-full p-2 border rounded-lg"
+                                                readOnly
+                                            />
+                                        </div>
+
                                 <div>
-                                    <p className="text-sm text-gray-500">Доступные даты</p>
-                                    <p className="font-bold text-gray-900">
-                                        {formatDate(listing.startDate)} - {formatDate(listing.endDate)}
-                                    </p>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                            <input
+                                                type="email"
+                                                value={user?.email || ''}
+                                                className="w-full p-2 border rounded-lg"
+                                                readOnly
+                                            />
                                 </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Телефон</label>
+                                            <input
+                                                type="tel"
+                                                value={user?.phone || '+7'}
+                                                className="w-full p-2 border rounded-lg"
+                                            />
                             </div>
 
-                            {categoryName && (
-                                <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-xs">
-                                    <p className="text-sm text-gray-500">Категория</p>
-                                    <p className="font-bold text-purple-600">{categoryName}</p>
+                                    <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Комментарий</label>
+                                            <textarea
+                                                value={userData.comment}
+                                                onChange={(e) => setUserData({...userData, comment: e.target.value})}
+                                                className="w-full p-2 border rounded-lg"
+                                                rows={3}
+                                                placeholder="Ваши пожелания или дополнительные требования"
+                                            />
+                        </div>
+                    </div>
+
+                                    <div className="flex space-x-4">
+                                        <button
+                                            onClick={() => setShowBookingForm(false)}
+                                            className="flex-1 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                                        >
+                                            Назад
+                                        </button>
+                            <button
+                                            onClick={handleBookingSubmit}
+                                            className="flex-1 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                            disabled={!bookingStartDate || !bookingEndDate || dateError}
+                            >
+                                Забронировать
+                            </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="p-6">
+                                    <button
+                                        onClick={handleBookingClick}
+                                        className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+                                        disabled={isOwner}
+                                    >
+                                        {isOwner ? "Это ваше объявление" : "Продолжить бронирование"}
+                                    </button>
                                 </div>
                             )}
                         </div>
                     </div>
+                                </div>
 
-                    {/* Подробное описание */}
-                    <div className="p-6 border-t">
-                        <h2 className="text-xl font-bold mb-4 flex items-center">
-                            <FaInfoCircle className="text-blue-500 mr-2" />
-                            Подробное описание
+                {/* Блок отзывов внизу страницы */}
+                <div className="bg-white rounded-xl shadow-md overflow-hidden mb-8">
+                    <button
+                        onClick={() => setShowReviews(!showReviews)}
+                        className="w-full flex justify-between items-center p-6 hover:bg-gray-50 transition-colors"
+                    >
+                        <h2 className="text-xl font-semibold flex items-center">
+                            <FaStar className="text-yellow-400 mr-2" />
+                            Отзывы ({reviews.length})
                         </h2>
-                        <p className="text-gray-700 whitespace-pre-line">{listing.description}</p>
-                    </div>
+                        {showReviews ? <FaChevronUp /> : <FaChevronDown />}
+                    </button>
 
-                    {/* Отзывы */}
-                    <ReviewsSection reviews={reviews} />
-
-                    {/* Форма бронирования */}
-                    <div className="p-6 bg-gray-50 border-t">
-                        {!showBookingForm ? (
-                            <button
-                                onClick={handleBookingClick}
-                                className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
-                                disabled={isOwner}
-                            >
-                                {isOwner ? "Это ваше объявление" : "Забронировать"}
-                            </button>
-                        ) : (
-                            <form onSubmit={handleBookingSubmit} className="space-y-4">
-                                <h3 className="text-xl font-bold text-gray-800 mb-4">Бронирование</h3>
-
-                                <div className="bg-blue-50 p-4 rounded-lg mb-4">
-                                    <h4 className="text-sm font-medium text-blue-800 mb-2">Доступный период:</h4>
-                                    <p className="font-medium">
-                                        {formatDate(listing.startDate)} - {formatDate(listing.endDate)}
-                                    </p>
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <DatePicker
-                                            value={bookingStartDate}
-                                        onChange={(e) => handleDateChange('start', e.target.value)}
-                                            min={listing.startDate}
-                                            max={listing.endDate}
-                                        label="Дата начала"
-                                    />
-                                    <DatePicker
-                                            value={bookingEndDate}
-                                        onChange={(e) => handleDateChange('end', e.target.value)}
-                                            min={bookingStartDate || listing.startDate}
-                                            max={listing.endDate}
-                                        label="Дата окончания"
-                                        disabled={!bookingStartDate}
-                                        />
-                                </div>
-
-                                {dateError && (
-                                    <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">
-                                        {dateError}
-                                </div>
-                                )}
-
-                                {!isUserLoading && user && (
-                                    <div className="space-y-4">
-                                            <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">ФИО</label>
-                                                <input
-                                                    type="text"
-                                                    value={`${user.first_name} ${user.last_name}`}
-                                                    readOnly
-                                                className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50"
-                                                />
+                    {showReviews && (
+                        <div className="divide-y divide-gray-200">
+                            {reviews.length > 0 ? (
+                                reviews.map((review) => (
+                                    <div key={review.id} className="p-6">
+                                        <div className="flex items-start space-x-4">
+                                            <div className="bg-gray-200 rounded-full w-10 h-10 flex items-center justify-center flex-shrink-0">
+                                                <FaUser className="text-gray-500" />
                                             </div>
-                                            <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                                                <input
-                                                    type="email"
-                                                    value={user.email}
-                                                    readOnly
-                                                className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50"
-                                                />
+                                            <div className="flex-1">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <h3 className="font-medium">{review.author || "Анонимный пользователь"}</h3>
+                                                    <span className="text-sm text-gray-500">
+                                                        {new Date(review.createdAt).toLocaleDateString('ru-RU')}
+                                                    </span>
+                                                </div>
+                                                <div className="flex mb-2">
+                                                    {[...Array(5)].map((_, i) => (
+                                                        i < review.rating ?
+                                                            <FaStar key={i} className="text-yellow-400" /> :
+                                                            <FaRegStar key={i} className="text-yellow-400" />
+                                                    ))}
                                             </div>
-                                            <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Комментарий (необязательно)</label>
-                                                <textarea
-                                                    value={userData.comment}
-                                                onChange={(e) => setUserData({ ...userData, comment: e.target.value })}
-                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none transition"
-                                                    rows={3}
-                                                    placeholder="Ваши пожелания или дополнительные требования"
-                                                />
+                                                <p className="text-gray-700">{review.comment}</p>
                                             </div>
                                         </div>
-                                )}
-
-                                <div className="flex space-x-4 pt-2">
-                                            <button
-                                                type="button"
-                                        onClick={() => setShowBookingForm(false)}
-                                        className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                                            >
-                                        Отмена
-                                            </button>
-                                            <button
-                                                type="submit"
-                                        className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex-1"
-                                        disabled={!bookingStartDate || !bookingEndDate || dateError}
-                                            >
-                                                Подтвердить бронирование
-                                            </button>
-                                        </div>
-                            </form>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="p-6 text-center text-gray-500">
+                                    Пока нет отзывов. Будьте первым!
+                                </div>
                         )}
                     </div>
+                    )}
                 </div>
             </div>
         </div>

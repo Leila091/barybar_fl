@@ -3,6 +3,7 @@ import { Pool } from 'pg';
 import { CreateListingDto } from './dto/create-listing.dto';
 import { UpdateListingDto } from './dto/update-listing.dto';
 import { CategoryService } from '../listing/category/category.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 
 @Injectable()
@@ -12,8 +13,10 @@ export class ListingService {
     constructor(
         @Inject('PG_POOL') private readonly db: Pool,
         private readonly categoryService: CategoryService,
+        private readonly cloudinaryService: CloudinaryService,
     ) {
         this.logger.log('Подключение к базе данных установлено');
+        this.db.query('SET client_encoding = \'UTF8\'');
     }
 
     // Получение всех объявлений пользователя (включая черновики)
@@ -24,6 +27,64 @@ export class ListingService {
         const result = await this.db.query(query, [userId]);
         this.logger.log(`Найдено объявлений: ${result.rows.length}`);
         return result.rows;
+    }
+
+
+    async getAllListings(filters: {
+        minPrice?: number;
+        maxPrice?: number;
+        location?: string;
+        categoryId?: number;
+        status?: string;
+    }) {
+        try {
+            let query = `
+            SELECT l.*, c.name AS category_name
+            FROM listings l
+            JOIN category c ON l."categoryId"::integer = c.id
+            WHERE 1=1
+        `;
+            const params: any[] = [];
+            let paramIndex = 1;
+
+            if (filters.status) {
+                query += ` AND l.status = $${paramIndex}`;
+                params.push(filters.status);
+                paramIndex++;
+            }
+
+            if (filters.minPrice) {
+                query += ` AND l.price >= $${paramIndex}`;
+                params.push(filters.minPrice);
+                paramIndex++;
+            }
+
+            if (filters.maxPrice) {
+                query += ` AND l.price <= $${paramIndex}`;
+                params.push(filters.maxPrice);
+                paramIndex++;
+            }
+
+            if (filters.location) {
+                query += ` AND l.location ILIKE $${paramIndex}`;
+                params.push(`%${filters.location}%`);
+                paramIndex++;
+            }
+
+            if (filters.categoryId) {
+                query += ` AND l."categoryId"::integer = $${paramIndex}`;
+                params.push(filters.categoryId);
+                paramIndex++;
+            }
+
+            query += ' ORDER BY l."created_at" DESC';
+
+            const result = await this.db.query(query, params);
+            return result.rows;
+        } catch (error) {
+            console.error('Ошибка в getAllListings:', error);
+            throw error;
+        }
     }
 
     // Создание нового объявления (автоматически устанавливается статус "draft" и "bookingStatus" как "available")
@@ -100,66 +161,71 @@ export class ListingService {
 
     // Обновление объявления (только для создателя)
     async updateListing(id: number, dto: UpdateListingDto, userId: number) {
-        // Проверяем, существует ли объявление и принадлежит ли оно пользователю
-        const existing = await this.db.query('SELECT "userId", status, "bookingStatus" FROM listings WHERE id = $1', [id]);
+        const existing = await this.db.query(
+            'SELECT "userId", status, "bookingStatus", photos FROM listings WHERE id = $1',
+            [id]
+        );
+
         if (!existing.rows.length) {
-            throw new NotFoundException(`Объявление с ID ${id} не найдено`);
+            throw new NotFoundException(`Listing with ID ${id} not found`);
         }
         if (existing.rows[0].userId !== userId) {
-            throw new ForbiddenException('Вы не можете редактировать это объявление');
+            throw new ForbiddenException('You cannot edit this listing');
         }
 
-        // Проверяем, что объявление не в статусе "архив"
-        if (existing.rows[0].status === 'archived') {
-            throw new ForbiddenException('Редактирование архивных объявлений запрещено');
-        }
-
-        // Проверяем, что categoryId является числом
-        if (dto.categoryId && isNaN(dto.categoryId)) {
-            throw new BadRequestException('Некорректный ID категории');
-        }
-
-        // Если categoryId передан, проверяем, что категория существует
-        if (dto.categoryId) {
-            const category = await this.categoryService.getCategoryById(dto.categoryId);
-            if (!category) {
-                throw new NotFoundException('Категория не найдена');
+        // Parse photos as an array if it's stored as a string
+        let updatedPhotos = existing.rows[0].photos;
+        if (typeof updatedPhotos === 'string') {
+            try {
+                updatedPhotos = JSON.parse(updatedPhotos);
+            } catch {
+                updatedPhotos = []; // Default to an empty array if parsing fails
             }
         }
 
-        // Подготавливаем данные для обновления
-        const updateData: Record<string, any> = {}; // Указываем тип для updateData
-        const validFields = ['title', 'description', 'price', 'priceType', 'quantity', 'location', 'startDate', 'endDate', 'categoryId', 'status', 'bookingStatus', 'photos'];
+        // Ensure updatedPhotos is an array
+        if (!Array.isArray(updatedPhotos)) {
+            updatedPhotos = [];
+        }
 
-        // Добавляем в updateData только те поля, которые переданы в dto и не равны undefined
+        // Remove deleted photos
+        if ((dto.deletedPhotos?.length ?? 0) > 0) {
+            updatedPhotos = updatedPhotos.filter(photo => !dto.deletedPhotos!.includes(photo));
+
+            // Delete files from Cloudinary
+            try {
+                await this.cloudinaryService.deleteFiles(dto.deletedPhotos ?? []);
+            } catch (error) {
+                this.logger.error('Error deleting files from Cloudinary', error);
+            }
+        }
+
+        // Add new photos
+        if (dto.photos) {
+            updatedPhotos = [...updatedPhotos, ...dto.photos];
+        }
+
+        // Prepare update data
+        const updateData: Record<string, any> = {};
+        const validFields = ['title', 'description', 'price', 'priceType', 'quantity',
+            'location', 'startDate', 'endDate', 'categoryId', 'status', 'bookingStatus', 'photos'];
+
         for (const field of validFields) {
             if (dto[field] !== undefined && dto[field] !== null && dto[field] !== '') {
-                updateData[field] = dto[field];
+                updateData[field] = field === 'photos' ? updatedPhotos : dto[field];
             }
         }
 
-        // Если updateData пустой, ничего не обновляем
         if (Object.keys(updateData).length === 0) {
-            throw new BadRequestException('Нет данных для обновления');
+            throw new BadRequestException('No data to update');
         }
 
-        // Если статус не передан, сохраняем текущий статус
-        if (dto.status === undefined) {
-            updateData.status = existing.rows[0].status;
-        }
-
-        // Если bookingStatus не передан, сохраняем текущий bookingStatus
-        if (dto.bookingStatus === undefined) {
-            updateData.bookingStatus = existing.rows[0].bookingStatus;
-        }
-
-        // Формируем SQL-запрос
         const setClause = Object.keys(updateData)
             .map((key, index) => `"${key}" = $${index + 1}`)
             .join(', ');
 
         const values = Object.values(updateData);
-        values.push(id); // Добавляем id в конец массива значений
+        values.push(id);
 
         const query = `UPDATE listings SET ${setClause} WHERE id = $${values.length} RETURNING *`;
         const result = await this.db.query(query, values);
@@ -424,10 +490,89 @@ export class ListingService {
             ORDER BY "created_at" DESC
             LIMIT 10
         `;
-        
+
         const result = await this.db.query(query);
         this.logger.log(`Найдено последних объявлений: ${result.rows.length}`);
         return result.rows;
     }
 
+
+
+    // Восстановление объявления (только для создателя)
+
+    async restoreArchivedListing(
+        id: number,
+        dto: { status: string },
+        userId: number
+    ) {
+        // 1. Проверяем существование и владельца
+        const existing = await this.db.query(
+            'SELECT "userId", status FROM listings WHERE id = $1',
+            [id]
+        );
+
+        if (!existing.rows.length) {
+            throw new NotFoundException(`Объявление с ID ${id} не найдено`);
+        }
+
+        if (existing.rows[0].userId !== userId) {
+            throw new ForbiddenException('Вы не можете восстановить это объявление');
+        }
+
+        // 2. Проверяем, что статус был 'archived'
+        if (existing.rows[0].status !== 'archived') {
+            throw new BadRequestException('Можно восстановить только архивные объявления');
+        }
+
+        // 3. Прямое обновление статуса в БД
+        const result = await this.db.query(
+            'UPDATE listings SET status = $1 WHERE id = $2 RETURNING *',
+            [dto.status, id]
+        );
+
+        return result.rows[0];
+    }
+
+    async checkCanRestore(id: number, userId: number) {
+        const listing = await this.getListingById(id, userId);
+        if (!listing) throw new NotFoundException('Объявление не найдено');
+        if (listing.userId !== userId) throw new ForbiddenException('Нет прав на восстановление');
+        if (listing.status !== 'archived') throw new BadRequestException('Только архивные объявления можно восстановить');
+    }
+
+    async directStatusUpdate(id: number, newStatus: string) {
+        const result = await this.db.query(
+            'UPDATE listings SET status = $1 WHERE id = $2 RETURNING *',
+            [newStatus, id]
+        );
+        return result.rows[0];
+    }
+
+    async restoreListing(id: number, userId: number) {
+        // Check if the listing exists and belongs to the user
+        const existing = await this.db.query('SELECT "userId", status FROM listings WHERE id = $1', [id]);
+        if (!existing.rows.length) {
+            throw new NotFoundException(`Объявление с ID ${id} не найдено`);
+        }
+        if (existing.rows[0].userId !== userId) {
+            throw new ForbiddenException('Вы не можете восстановить это объявление');
+        }
+
+        // Ensure the listing is archived
+        if (existing.rows[0].status !== 'archived') {
+            throw new BadRequestException('Можно восстановить только архивные объявления');
+        }
+
+        // Update the status to 'draft' or another appropriate status
+        const result = await this.db.query(
+            'UPDATE listings SET status = $1 WHERE id = $2 RETURNING *',
+            ['draft', id]
+        );
+
+        return {
+            success: true,
+            message: 'Объявление успешно восстановлено',
+            data: result.rows[0],
+        };
+    }
 }

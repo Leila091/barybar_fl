@@ -64,8 +64,21 @@ export default function CreateListingModal() {
             toast.error("Можно загрузить не более 20 фото");
             return;
         }
-        setForm((prev) => ({ ...prev, photos: files }));
-        setPreview(files.map((file) => URL.createObjectURL(file)));
+        setForm((prev) => ({ ...prev, photos: [...prev.photos, ...files] }));
+        setPreview((prev) => [...prev, ...files.map((file) => URL.createObjectURL(file))]);
+    };
+
+    const handleDeletePhoto = (index: number) => {
+        setForm((prev) => {
+            const updatedPhotos = [...prev.photos];
+            updatedPhotos.splice(index, 1);
+            return { ...prev, photos: updatedPhotos };
+        });
+        setPreview((prev) => {
+            const updatedPreview = [...prev];
+            updatedPreview.splice(index, 1);
+            return updatedPreview;
+        });
     };
 
     const handleCloseModal = () => {

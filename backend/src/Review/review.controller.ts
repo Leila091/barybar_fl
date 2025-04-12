@@ -17,7 +17,7 @@ export class ReviewController {
         return this.reviewService.createReview(createReviewDto, userId);
     }
 
-    @Get('listing/:id')
+    @Get('listings/:id')
     async getListingReviews(@Param('id') listingId: number) {
         return this.reviewService.getReviewsByListing(listingId);
     }

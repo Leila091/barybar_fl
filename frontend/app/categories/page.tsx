@@ -2,7 +2,18 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { FaCar, FaCouch, FaLaptop, FaTshirt, FaBicycle, FaCamera } from "react-icons/fa";
+import {
+    FaCar,
+    FaLaptop,
+    FaTshirt,
+    FaBriefcase,
+    FaHandsHelping,
+    FaTv,
+    FaChild,
+    FaHome,
+    FaFutbol,
+    FaBoxOpen
+} from "react-icons/fa";
 
 interface Category {
     id: number;
@@ -10,12 +21,16 @@ interface Category {
 }
 
 const categoryIcons: Record<string, JSX.Element> = {
-    "Авто": <FaCar />,
-    "Мебель": <FaCouch />,
+    "Недвижимость": <FaHome />,
+    "Автомобили": <FaCar />,
     "Электроника": <FaLaptop />,
     "Одежда": <FaTshirt />,
-    "Велосипеды": <FaBicycle />,
-    "Фото и видео": <FaCamera />,
+    "Работа": <FaBriefcase />,
+    "Услуги": <FaHandsHelping />,
+    "Бытовая техника": <FaTv />,
+    "Одежда и обувь": <FaTshirt />,
+    "Спорт и отдых": <FaFutbol />,
+    "Детские товары": <FaChild />,
 };
 
 const CategoriesPage = () => {
@@ -63,9 +78,13 @@ const CategoriesPage = () => {
                         <Link key={category.id} href={`/categories/${category.id}`} className="group">
                             <div className="p-6 bg-white rounded-xl shadow-lg flex flex-col items-center text-center cursor-pointer border border-gray-200 transition-all duration-300 transform hover:-translate-y-2 hover:bg-gradient-to-r from-blue-500 to-purple-500 hover:text-white">
                                 <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center text-4xl shadow-md transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl">
-                                    <span className="transition-all duration-300 text-gray-700 group-hover:text-white">{categoryIcons[category.name] || <FaCouch />}</span>
+                                    <span className="transition-all duration-300 text-gray-700 group-hover:text-white">
+                                        {categoryIcons[category.name] || <FaBoxOpen />}
+                                    </span>
                                 </div>
-                                <h2 className="text-xl font-semibold mt-4 transition-all duration-300 group-hover:text-white">{category.name}</h2>
+                                <h2 className="text-xl font-semibold mt-4 transition-all duration-300 group-hover:text-white">
+                                    {category.name}
+                                </h2>
                                 <p className="text-sm mt-1 opacity-70 group-hover:opacity-100 transition-opacity">
                                     Посмотреть объявления
                                 </p>

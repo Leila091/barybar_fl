@@ -1,3 +1,4 @@
+// frontend/components/CategoryFilters.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -14,7 +15,7 @@ const CategoryFilters = () => {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    
+
     const [minPrice, setMinPrice] = useState(searchParams.get('minPrice') || '');
     const [maxPrice, setMaxPrice] = useState(searchParams.get('maxPrice') || '');
     const [locationId, setLocationId] = useState(searchParams.get('locationId') || '');
@@ -22,7 +23,6 @@ const CategoryFilters = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Загружаем список городов при монтировании компонента
     useEffect(() => {
         const fetchLocations = async () => {
             try {
@@ -48,7 +48,6 @@ const CategoryFilters = () => {
         fetchLocations();
     }, []);
 
-    // Обновляем состояние при изменении URL
     useEffect(() => {
         setMinPrice(searchParams.get('minPrice') || '');
         setMaxPrice(searchParams.get('maxPrice') || '');
@@ -57,8 +56,7 @@ const CategoryFilters = () => {
 
     const handleFilter = () => {
         const params = new URLSearchParams();
-        
-        // Добавляем параметры только если они не пустые
+
         if (minPrice && minPrice !== '0') {
             params.set('minPrice', minPrice);
         }
@@ -69,7 +67,6 @@ const CategoryFilters = () => {
             params.set('locationId', locationId);
         }
 
-        // Сохраняем текущий путь и добавляем новые параметры
         const newUrl = `${pathname}?${params.toString()}`;
         router.push(newUrl);
     };
@@ -84,7 +81,7 @@ const CategoryFilters = () => {
     return (
         <div className="bg-white rounded-lg p-4">
             <h2 className="text-xl font-semibold mb-4">Фильтр</h2>
-            
+
             <div className="space-y-4">
                 <div>
                     <h3 className="text-sm font-medium text-gray-700 mb-2">
@@ -158,4 +155,4 @@ const CategoryFilters = () => {
     );
 };
 
-export default CategoryFilters; 
+export default CategoryFilters;

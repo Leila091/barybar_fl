@@ -26,8 +26,11 @@ const BookingForm = ({ listingId, userId, onBookingSuccess }: BookingFormProps) 
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${localStorage.getItem("token")}`,
                 },
-                body: JSON.stringify({ listingId, userId, startDate, endDate }),
+                body: JSON.stringify({ listingId, userId, startDate, endDate }), // Здесь нет данных пользователя
             });
+            // ...
+        }
+    };
 
             if (!response.ok) {
                 throw new Error("Ошибка при бронировании");

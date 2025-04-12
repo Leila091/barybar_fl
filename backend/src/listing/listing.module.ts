@@ -7,6 +7,7 @@ import { CategoryModule } from '../listing/category/category.module';
 import { DatabaseModule } from '../database/database.module';
 import { LocationModule } from '../location/location.module';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module'; // Импортируем CloudinaryModule
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Module({
     imports: [
@@ -19,7 +20,7 @@ import { CloudinaryModule } from '../cloudinary/cloudinary.module'; // Импо�
         }),
     ],
     controllers: [ListingController],
-    providers: [ListingService],
+    providers: [ListingService, CloudinaryService],
     exports: [ListingService],
 })
 export class ListingModule {}

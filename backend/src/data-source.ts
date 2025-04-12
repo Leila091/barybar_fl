@@ -14,6 +14,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
                     user: configService.get<string>('DB_USER'),
                     password: configService.get<string>('DB_PASSWORD'),
                     database: configService.get<string>('DB_NAME'),
+                    client_encoding: 'UTF8'
                 };
 
                 console.log('🛠️ Database Config:', dbConfig);

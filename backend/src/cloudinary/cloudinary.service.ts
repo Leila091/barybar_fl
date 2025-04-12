@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
 import { v2 as cloudinary } from 'cloudinary';
 import { Readable } from 'stream';
 
@@ -41,5 +41,24 @@ export class CloudinaryService {
 
             readableStream.pipe(uploadStream);
         });
+    }
+
+    async deleteFiles(urls: string[]) {
+        try {
+            const publicIds = urls.map(url => {
+                const parts = url.split('/');
+                const filename = parts[parts.length - 1];
+                return filename.split('.')[0]; // Получаем public_id без расширения
+            });
+
+            await Promise.all(
+                publicIds.map(publicId =>
+                    cloudinary.uploader.destroy(publicId) // Используем cloudinary напрямую
+                )
+            );
+        } catch (error) {
+            this.logger.error('Ошибка при удалении файлов из Cloudinary', error);
+            throw new InternalServerErrorException('Не удалось удалить файлы');
+        }
     }
 }

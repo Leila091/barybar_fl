@@ -20,6 +20,7 @@ import {
     Logger,
     Query,
     HttpException,
+    Delete
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ListingService } from './listing.service';
@@ -40,6 +41,33 @@ export class ListingController {
         private readonly categoryService: CategoryService,
         private readonly cloudinaryService: CloudinaryService,
     ) {}
+
+    @Get()
+    async getAllListings(
+        @Query('minPrice') minPrice?: string,
+        @Query('maxPrice') maxPrice?: string,
+        @Query('location') location?: string,
+        @Query('categoryId') categoryId?: string,
+        @Query('status') status?: string
+    ): Promise<any[]> {
+        try {
+            const filters = {
+                minPrice: minPrice ? parseFloat(minPrice) : undefined,
+                maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
+                location,
+                categoryId: categoryId ? parseInt(categoryId) : undefined,
+                status: status || 'published',
+            };
+
+            this.logger.log('Фильтры всех объявлений:', filters);
+
+            return await this.listingService.getAllListings(filters);
+        } catch (error) {
+            console.error('Ошибка при получении всех объявлений:', error);
+            throw new HttpException('Не удалось получить объявления', HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
 
     @Post('create')
     @UseGuards(AuthGuard('jwt'))
@@ -133,10 +161,10 @@ export class ListingController {
         const userId = req.user.userId;
         this.logger.log(`Запрос на обновление объявления с ID: ${id}, пользователь: ${userId}`);
 
-        const existing = await this.listingService.getListingById(id, userId);
-        if (existing.status === 'archived') {
-            throw new ForbiddenException('Редактирование архивных объявлений запрещено');
-        }
+        // const existing = await this.listingService.getListingById(id, userId);
+        // if (existing.status === 'archived') {
+        //     throw new ForbiddenException('Редактирование архивных объявлений запрещено');
+        // }
 
         if (updateListingDto.categoryId) {
             const category = await this.categoryService.getCategoryById(updateListingDto.categoryId);
@@ -193,5 +221,55 @@ export class ListingController {
             this.logger.error('Ошибка при загрузке файлов', error.stack);
             throw new InternalServerErrorException('Ошибка при загрузке файлов');
         }
+    }
+
+    // Удаление объявления
+    @Delete(':id')
+    @UseGuards(AuthGuard('jwt'))
+    async deleteListing(@Param('id', ParseIntPipe) id: number, @Request() req) {
+        const userId = req.user.userId;
+        this.logger.log(`Запрос на удаление объявления с ID: ${id}, пользователь: ${userId}`);
+
+        const existing = await this.listingService.getListingById(id, userId);
+        if (!existing) {
+            throw new NotFoundException('Объявление не найдено');
+        }
+
+        if (existing.userId !== userId) {
+            throw new ForbiddenException('Вы не можете удалить это объявление');
+        }
+
+        const deleted = await this.listingService.deleteListing(id, userId);
+        if (!deleted) {
+            throw new InternalServerErrorException('Не удалось удалить объявление');
+        }
+
+        return {
+            success: true,
+            message: 'Объявление успешно удалено',
+        };
+    }
+
+// Восстановление объявления
+    @Patch(':id/restore')
+    @UseGuards(AuthGuard('jwt'))
+    async restoreListing(
+        @Param('id', ParseIntPipe) id: number,
+        @Request() req
+    ) {
+        const userId = req.user.userId;
+        this.logger.log(`Запрос на восстановление объявления с ID: ${id}, пользователь: ${userId}`);
+
+        // Check if the listing can be restored
+        await this.listingService.checkCanRestore(id, userId);
+
+        // Restore the listing by updating its status
+        const updatedListing = await this.listingService.directStatusUpdate(id, 'published');
+
+        return {
+            success: true,
+            message: 'Объявление успешно восстановлено',
+            data: updatedListing,
+        };
     }
 }

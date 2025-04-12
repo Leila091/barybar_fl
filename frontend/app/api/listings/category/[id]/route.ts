@@ -1,3 +1,4 @@
+// frontend/app/api/listings/category/[id]/route.ts
 import { NextResponse } from 'next/server';
 
 export async function GET(
@@ -11,26 +12,32 @@ export async function GET(
         const locationId = searchParams.get('locationId');
 
         // Формируем URL для бэкенда с параметрами фильтрации
-        const backendUrl = new URL(`http://localhost:3001/api/listings/category/${params.id}`);
-        
+        const backendUrl = new URL(`http://localhost:3001/listings/category/${params.id}`);
+
         // Добавляем параметр status=published
         backendUrl.searchParams.set('status', 'published');
-        
+
         // Добавляем параметры фильтрации только если они заданы и валидны
-        if (minPrice && !isNaN(Number(minPrice)) && Number(minPrice) > 0) {
+        if (minPrice && !isNaN(Number(minPrice))) {
             backendUrl.searchParams.set('minPrice', minPrice);
         }
-        if (maxPrice && !isNaN(Number(maxPrice)) && Number(maxPrice) > 0) {
+        if (maxPrice && !isNaN(Number(maxPrice))) {
             backendUrl.searchParams.set('maxPrice', maxPrice);
         }
-        if (locationId && !isNaN(Number(locationId)) && Number(locationId) > 0) {
+        if (locationId && !isNaN(Number(locationId))) {
             backendUrl.searchParams.set('locationId', locationId);
         }
 
         console.log('Fetching from backend URL:', backendUrl.toString());
 
-        const response = await fetch(backendUrl.toString());
-        
+        const response = await fetch(backendUrl.toString(), {
+            cache: 'no-store', // Отключаем кэширование
+            headers: {
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+            }
+        });
+
         if (!response.ok) {
             if (response.status === 404) {
                 return NextResponse.json(
@@ -42,7 +49,15 @@ export async function GET(
         }
 
         const data = await response.json();
-        return NextResponse.json(data);
+
+        // Добавляем заголовки для предотвращения кэширования
+        return NextResponse.json(data, {
+            headers: {
+                'Cache-Control': 'no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
+        });
     } catch (error) {
         console.error('Error fetching listings:', error);
         return NextResponse.json(
@@ -50,4 +65,4 @@ export async function GET(
             { status: 500 }
         );
     }
-} 
+}

@@ -75,3 +75,59 @@
 .go3958317564 { /* Это класс самого toast */
     z-index: 99999 !important;
 }
+
+.btn-light {
+    @apply flex items-center justify-center px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 transition text-sm sm:text-base;
+}
+
+.btn-blue {
+    @apply flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm sm:text-base;
+}
+
+.btn-red {
+    @apply flex items-center justify-center px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm sm:text-base;
+}
+
+.btn-green {
+    @apply flex items-center justify-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm sm:text-base;
+}
+
+
+/* Стили для поиска */
+.search-container {
+    position: relative;
+    height: 40px;
+}
+
+.search-input {
+    height: 40px;
+    padding: 0 40px 0 16px;
+    border: none;
+    border-radius: 20px;
+    outline: none;
+    transition: width 0.3s ease, opacity 0.3s ease;
+}
+
+.search-input-expanded {
+    width: 256px;
+    opacity: 1;
+}
+
+.search-input-collapsed {
+    width: 0;
+    opacity: 0;
+}
+
+.search-icon {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #666;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.search-icon:hover {
+    color: #333;
+}
