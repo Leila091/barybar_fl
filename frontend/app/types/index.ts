@@ -13,9 +13,23 @@ export interface Booking {
     userId: number;
     startDate: string;
     endDate: string;
-    status: 'active' | 'completed' | 'cancelled';
+    status: 'active' | 'completed' | 'cancelled' | 'confirmed' | 'pending';
     comment?: string;
     createdAt: string;
+    title?: string;
+    location?: string;
+    price?: string;
+    mainPhoto?: string;
+    hasReview: boolean;
+    review?: {
+        id: number;
+        rating: number;
+        comment: string;
+        createdAt: string;
+    };
+    fullName?: string;
+    phone?: string;
+    email?: string;
 }
 
 export interface Listing {

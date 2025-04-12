@@ -107,6 +107,9 @@ export class BookingService {
                 b.status,
                 l.location,
                 l.price,
+                b.full_name as "fullName",
+                b.phone,
+                b.email,
                 CASE 
                     WHEN l.photos IS NULL OR l.photos = '' THEN NULL
                     WHEN l.photos LIKE '{%}%' THEN (l.photos::text[])[1]

@@ -1,7 +1,21 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { IconBaseProps, IconType } from "react-icons";
 import { FaArchive, FaBullhorn, FaEdit, FaEye, FaFileAlt, FaHome, FaImage, FaRedo, FaSpinner, FaTrash } from "react-icons/fa";
+
+interface Listing {
+    id: number;
+    title: string;
+    description: string;
+    price: number;
+    location: string;
+    status: 'draft' | 'published' | 'archived';
+    photos: string[];
+    mainPhoto?: string;
+    createdAt: string;
+    updatedAt: string;
+}
 
 const Breadcrumbs = ({ items }: { items: { label: string; href?: string }[] }) => {
     const router = useRouter();
@@ -34,13 +48,23 @@ const Breadcrumbs = ({ items }: { items: { label: string; href?: string }[] }) =
     );
 };
 
+interface IconProps extends IconBaseProps {
+    icon: IconType;
+}
+
+const Icon = ({ icon: IconComponent, ...props }: IconProps) => {
+    return <IconComponent {...props} />;
+};
+
 const MyListings = () => {
-    const [listings, setListings] = useState([]);
+    const [listings, setListings] = useState<Listing[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'active' | 'drafts' | 'archived'>('active');
     const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [deleteListingId, setDeleteListingId] = useState(null);
+    const [deleteListingId, setDeleteListingId] = useState<number | null>(null);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(10);
     const router = useRouter();
 
     const processPhotos = (photos: any): string[] => {
@@ -86,7 +110,7 @@ const MyListings = () => {
                 mainPhoto: processPhotos(listing.photos)[0]
             }));
             
-            processedData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            processedData.sort((a: Listing, b: Listing) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
             setListings(processedData);
         } catch (error) {
             console.error("Ошибка при загрузке объявлений:", error);
@@ -100,7 +124,7 @@ const MyListings = () => {
         fetchListings();
     }, []);
 
-    const updateStatus = async (id, status) => {
+    const updateStatus = async (id: number, status: 'draft' | 'published' | 'archived') => {
         const token = localStorage.getItem("token");
         if (!token) return;
 
@@ -127,7 +151,8 @@ const MyListings = () => {
         }
     };
 
-    const deleteListing = async (id) => {
+    const deleteListing = async (id: number | null) => {
+        if (id === null) return;
         const token = localStorage.getItem("token");
         if (!token) return;
 
@@ -151,7 +176,7 @@ const MyListings = () => {
         }
     };
 
-    const getStatusLabel = (status) => {
+    const getStatusLabel = (status: 'draft' | 'published' | 'archived') => {
         const statusClasses = {
             draft: "bg-yellow-100 text-yellow-800",
             published: "bg-green-100 text-green-800",
@@ -164,7 +189,7 @@ const MyListings = () => {
         );
     };
 
-    const formatDate = (dateString) => {
+    const formatDate = (dateString: string) => {
         if (!dateString) return "Не указано";
         const date = new Date(dateString);
         return date.toLocaleDateString('ru-RU');
@@ -183,7 +208,26 @@ const MyListings = () => {
         }
     });
 
-    const getTabCount = (tabType) => {
+    // Вычисляем общее количество страниц
+    const totalPages = Math.ceil(filteredListings.length / itemsPerPage);
+    
+    // Получаем текущие объявления для отображения
+    const currentListings = filteredListings.slice(0, currentPage * itemsPerPage);
+    
+    // Проверяем, есть ли еще объявления для показа
+    const hasMoreItems = currentListings.length < filteredListings.length;
+
+    // Функция для загрузки следующей страницы
+    const loadMoreItems = () => {
+        setCurrentPage(prev => prev + 1);
+    };
+
+    // Сбрасываем текущую страницу при смене вкладки
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [activeTab]);
+
+    const getTabCount = (tabType: 'active' | 'drafts' | 'archived') => {
         return listings.filter(listing => {
             if (tabType === 'active') return listing.status === 'published';
             if (tabType === 'drafts') return listing.status === 'draft';
@@ -192,7 +236,7 @@ const MyListings = () => {
         }).length;
     };
 
-    const GridView = ({ listings }) => (
+    const GridView = ({ listings }: { listings: Listing[] }) => (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6">
             {listings.map((listing) => (
                 <div
@@ -217,7 +261,7 @@ const MyListings = () => {
                             />
                         ) : (
                             <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                                <FaImage className="text-4xl text-gray-400" />
+                                <FaImage size={24} className="text-gray-400" />
                             </div>
                         )}
                     </div>
@@ -235,7 +279,7 @@ const MyListings = () => {
                             onClick={() => router.push(`/listing/edit-listing/${listing.id}`)}
                             className="flex items-center justify-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
                         >
-                            <FaEdit className="mr-2" />
+                            <FaEdit size={16} className="mr-2" />
                             Редактировать
                         </button>
 
@@ -245,7 +289,7 @@ const MyListings = () => {
                                     onClick={() => updateStatus(listing.id, 'published')}
                                     className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
                                 >
-                                    <FaBullhorn className="mr-2" />
+                                    <FaBullhorn size={16} className="mr-2" />
                                     Опубликовать
                                 </button>
                             )}
@@ -255,7 +299,7 @@ const MyListings = () => {
                                     onClick={() => updateStatus(listing.id, 'archived')}
                                     className="flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
                                 >
-                                    <FaArchive className="mr-2" />
+                                    <FaArchive size={16} className="mr-2" />
                                     Архивировать
                                 </button>
                             )}
@@ -266,14 +310,14 @@ const MyListings = () => {
                                         onClick={() => updateStatus(listing.id, 'published')}
                                         className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
                                     >
-                                        <FaRedo className="mr-2" />
+                                        <FaRedo size={16} className="mr-2" />
                                         Восстановить
                                     </button>
                                     <button 
                                         onClick={() => { setDeleteListingId(listing.id); setShowDeleteModal(true); }}
                                         className="flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
                                     >
-                                        <FaTrash className="mr-2" />
+                                        <FaTrash size={16} className="mr-2" />
                                         Удалить
                                     </button>
                                 </>
@@ -285,7 +329,7 @@ const MyListings = () => {
         </div>
     );
 
-    const ListView = ({ listings }) => (
+    const ListView = ({ listings }: { listings: Listing[] }) => (
         <div className="space-y-4">
             {listings.map((listing) => (
                 <div
@@ -332,7 +376,7 @@ const MyListings = () => {
                                     onClick={() => router.push(`/listing/edit-listing/${listing.id}`)}
                                     className="flex items-center justify-center px-3 py-1 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
                                 >
-                                    <FaEdit className="mr-2" />
+                                    <FaEdit size={16} className="mr-2" />
                                     Редактировать
                                 </button>
 
@@ -342,7 +386,7 @@ const MyListings = () => {
                                             onClick={() => updateStatus(listing.id, 'published')}
                                             className="flex items-center justify-center px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
                                         >
-                                            <FaBullhorn className="mr-2" />
+                                            <FaBullhorn size={16} className="mr-2" />
                                             Опубликовать
                                         </button>
                                     )}
@@ -352,7 +396,7 @@ const MyListings = () => {
                                             onClick={() => updateStatus(listing.id, 'archived')}
                                             className="flex items-center justify-center px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
                                         >
-                                            <FaArchive className="mr-2" />
+                                            <FaArchive size={16} className="mr-2" />
                                             Архивировать
                                         </button>
                                     )}
@@ -363,14 +407,14 @@ const MyListings = () => {
                                                 onClick={() => updateStatus(listing.id, 'published')}
                                                 className="flex items-center justify-center px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
                                             >
-                                                <FaRedo className="mr-2" />
+                                                <FaRedo size={16} className="mr-2" />
                                                 Восстановить
                                             </button>
                                             <button 
                                                 onClick={() => { setDeleteListingId(listing.id); setShowDeleteModal(true); }}
                                                 className="flex items-center justify-center px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
                                             >
-                                                <FaTrash className="mr-2" />
+                                                <FaTrash size={16} className="mr-2" />
                                                 Удалить
                                             </button>
                                         </>
@@ -385,97 +429,106 @@ const MyListings = () => {
     );
 
     return (
-        <div className="min-h-screen bg-gray-50 py-6 px-4 sm:px-6">
-            <div className="max-w-4xl mx-auto">
-                <Breadcrumbs
-                    items={[
-                        { label: "Главная", href: "/" },
-                        { label: "Мои объявления" }
-                    ]}
-                />
+        <div className="container mx-auto px-4 py-8">
+            <Breadcrumbs
+                items={[
+                    { label: "Главная", href: "/" },
+                    { label: "Мои объявления" }
+                ]}
+            />
 
-                <div className="bg-white rounded-lg shadow-lg p-5 sm:p-6">
-                    <div className="flex justify-between items-center mb-6">
-                        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                            Мои объявления
-                        </h1>
-                    </div>
-
-                    <div className="flex justify-between items-center mb-6">
-                        <div className="flex border-b border-gray-200">
-                            <button
-                                className={`py-2 px-4 font-medium text-sm sm:text-base flex items-center ${activeTab === 'active' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                                onClick={() => setActiveTab('active')}
-                            >
-                                <FaEye className="mr-2" />
-                                Активные ({getTabCount('active')})
-                            </button>
-                            <button
-                                className={`py-2 px-4 font-medium text-sm sm:text-base flex items-center ${activeTab === 'drafts' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                                onClick={() => setActiveTab('drafts')}
-                            >
-                                <FaFileAlt className="mr-2" />
-                                Черновики ({getTabCount('drafts')})
-                            </button>
-                            <button
-                                className={`py-2 px-4 font-medium text-sm sm:text-base flex items-center ${activeTab === 'archived' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                                onClick={() => setActiveTab('archived')}
-                            >
-                                <FaArchive className="mr-2" />
-                                Архив ({getTabCount('archived')})
-                            </button>
-                        </div>
-                        <div className="flex space-x-2">
-                            <button 
-                                onClick={() => setViewMode('grid')}
-                                className={`p-2 rounded ${viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}
-                                title="Плитки"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                                </svg>
-                            </button>
-                            <button 
-                                onClick={() => setViewMode('list')}
-                                className={`p-2 rounded ${viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}
-                                title="Список"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-
-                    {loading ? (
-                        <div className="flex flex-col items-center justify-center py-10">
-                            <FaSpinner className="animate-spin text-blue-500 text-2xl mb-3" />
-                            <p className="text-gray-600">Загрузка объявлений...</p>
-                        </div>
-                    ) : filteredListings.length === 0 ? (
-                        <div className="text-center py-10">
-                            <p className="text-gray-500 mb-4">
-                                {activeTab === 'active' && "У вас нет активных объявлений"}
-                                {activeTab === 'drafts' && "У вас нет черновиков"}
-                                {activeTab === 'archived' && "У вас нет архивных объявлений"}
-                            </p>
-                        </div>
-                    ) : viewMode === 'grid' ? (
-                        <GridView listings={filteredListings} />
-                    ) : (
-                        <ListView listings={filteredListings} />
-                    )}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4 md:mb-0">Мои объявления</h1>
+                <div className="flex items-center space-x-4">
+                    <button
+                        onClick={() => setViewMode('grid')}
+                        className={`p-2 rounded-lg ${viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}
+                    >
+                        <FaHome size={20} />
+                    </button>
+                    <button
+                        onClick={() => setViewMode('list')}
+                        className={`p-2 rounded-lg ${viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}
+                    >
+                        <FaFileAlt size={20} />
+                    </button>
                 </div>
             </div>
 
+            <div className="bg-white rounded-xl shadow-sm mb-6">
+                <div className="flex flex-wrap border-b">
+                    <button
+                        onClick={() => setActiveTab('active')}
+                        className={`px-6 py-4 text-sm font-medium ${
+                            activeTab === 'active'
+                                ? 'text-blue-600 border-b-2 border-blue-600'
+                                : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                    >
+                        Активные ({getTabCount('active')})
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('drafts')}
+                        className={`px-6 py-4 text-sm font-medium ${
+                            activeTab === 'drafts'
+                                ? 'text-blue-600 border-b-2 border-blue-600'
+                                : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                    >
+                        Черновики ({getTabCount('drafts')})
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('archived')}
+                        className={`px-6 py-4 text-sm font-medium ${
+                            activeTab === 'archived'
+                                ? 'text-blue-600 border-b-2 border-blue-600'
+                                : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                    >
+                        В архиве ({getTabCount('archived')})
+                    </button>
+                </div>
+            </div>
+
+            {loading ? (
+                <div className="flex justify-center items-center h-64">
+                    <FaSpinner className="animate-spin text-4xl text-blue-600" />
+                </div>
+            ) : currentListings.length > 0 ? (
+                <>
+                    {viewMode === 'grid' ? (
+                        <GridView listings={currentListings} />
+                    ) : (
+                        <ListView listings={currentListings} />
+                    )}
+                    
+                    {hasMoreItems && (
+                        <div className="flex justify-center mt-8">
+                            <button
+                                onClick={loadMoreItems}
+                                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+                            >
+                                <FaRedo className="mr-2" />
+                                Показать еще {Math.min(itemsPerPage, filteredListings.length - currentListings.length)} объявлений
+                            </button>
+                        </div>
+                    )}
+                </>
+            ) : (
+                <div className="text-center py-12">
+                    <p className="text-gray-500 text-lg">У вас пока нет объявлений в этой категории</p>
+                </div>
+            )}
+
             {showDeleteModal && (
-                <div className="fixed inset-0 bg-gray-500 bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Вы уверены, что хотите удалить это объявление?</h3>
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                        <h3 className="text-xl font-semibold mb-4">Подтверждение удаления</h3>
+                        <p className="text-gray-600 mb-6">Вы уверены, что хотите удалить это объявление? Это действие нельзя отменить.</p>
                         <div className="flex justify-end space-x-4">
                             <button
                                 onClick={() => setShowDeleteModal(false)}
-                                className="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400"
+                                className="px-4 py-2 text-gray-600 hover:text-gray-800"
                             >
                                 Отмена
                             </button>

@@ -20,6 +20,9 @@ interface Booking {
         comment: string;
         createdAt: string;
     };
+    fullName?: string;
+    phone?: string;
+    email?: string;
 }
 
 const BookingsPage = () => {
@@ -38,6 +41,10 @@ const BookingsPage = () => {
     const [rating, setRating] = useState(5);
     const [reviewComment, setReviewComment] = useState('');
     const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+
+    // Состояния для модального окна с контактами
+    const [isContactsModalOpen, setIsContactsModalOpen] = useState<boolean>(false);
+    const [selectedBookingForContacts, setSelectedBookingForContacts] = useState<Booking | null>(null);
 
     useEffect(() => {
         const fetchBookings = async () => {
@@ -280,13 +287,24 @@ const BookingsPage = () => {
                                             : "Завершено"}
                                 </div>
 
-                                {activeTab === 'active' && booking.status !== "canceled" && (
-                                    <button
-                                        onClick={() => handleCancelClick(booking)}
-                                        className="mt-4 w-full bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 transition-all duration-300"
-                                    >
-                                        Отменить бронирование
-                                    </button>
+                                {activeTab === 'active' && booking.status === "confirmed" && (
+                                    <div className="mt-4 space-y-2">
+                                        <button
+                                            onClick={() => {
+                                                setSelectedBookingForContacts(booking);
+                                                setIsContactsModalOpen(true);
+                                            }}
+                                            className="w-full bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-all duration-300"
+                                        >
+                                            Показать контакты
+                                        </button>
+                                        <button
+                                            onClick={() => handleCancelClick(booking)}
+                                            className="w-full bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 transition-all duration-300"
+                                        >
+                                            Отменить бронирование
+                                        </button>
+                                    </div>
                                 )}
 
                                 {activeTab === 'completed' && booking.review && (
@@ -401,6 +419,37 @@ const BookingsPage = () => {
                                 disabled={!reviewComment.trim() || isSubmittingReview}
                             >
                                 {isSubmittingReview ? 'Отправка...' : 'Отправить'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Модалка с контактами */}
+            {isContactsModalOpen && selectedBookingForContacts && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+                    <div className="bg-white rounded-lg p-6 shadow-lg w-96">
+                        <h2 className="text-xl font-semibold text-gray-900 mb-4">Контактные данные</h2>
+                        <div className="space-y-4">
+                            <div>
+                                <p className="text-sm text-gray-500">ФИО</p>
+                                <p className="font-medium">{selectedBookingForContacts.fullName || 'Не указано'}</p>
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500">Телефон</p>
+                                <p className="font-medium">{selectedBookingForContacts.phone || 'Не указан'}</p>
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500">Email</p>
+                                <p className="font-medium">{selectedBookingForContacts.email || 'Не указан'}</p>
+                            </div>
+                        </div>
+                        <div className="mt-6 flex justify-end">
+                            <button
+                                onClick={() => setIsContactsModalOpen(false)}
+                                className="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition-all duration-300"
+                            >
+                                Закрыть
                             </button>
                         </div>
                     </div>
